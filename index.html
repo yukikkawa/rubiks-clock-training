@@ -27,6 +27,7 @@
             text-align: center;
             width: 100%;
             max-width: 400px;
+            position: relative;
         }
         .screen { display: none; }
         .active { display: block; }
@@ -34,7 +35,7 @@
         h2 { margin-top: 10px; color: #212529; }
         p { color: #6c757d; font-size: 14px; line-height: 1.5; }
 
-        /* 時計エリア（接近レイアウトの復元） */
+        /* 時計エリア */
         .clock-container {
             display: flex;
             flex-direction: row;
@@ -101,12 +102,11 @@
             border-radius: 10px;
         }
         
-        /* カラーリングの復元 */
-        .btn-minus { background-color: #c92a2a; } /* 落ち着いた赤 */
-        .btn-plus { background-color: #228be6; }  /* 鮮やかな青 */
+        .btn-minus { background-color: #c92a2a; }
+        .btn-plus { background-color: #228be6; }
         .btn-fullwidth {
             grid-column: span 2;
-            background-color: #12b886; /* 0と6は緑系 */
+            background-color: #12b886;
         }
         
         .info-container {
@@ -125,28 +125,88 @@
             padding: 4px 12px;
             border-radius: 6px;
         }
+        
+        /* リザルト表示 */
         .result-time {
             font-size: 36px;
             font-weight: bold;
             color: #d6336c;
-            margin: 20px 0;
+            margin: 15px 0 5px 0;
+        }
+        .result-miss {
+            font-size: 18px;
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 25px;
         }
 
-        .message-area {
-            height: 20px;
-            font-size: 14px;
-            font-weight: bold;
-            color: #f03e3e;
-            margin: 5px 0;
+        /* エフェクト用オーバーレイ共通 */
+        .effect-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
             opacity: 0;
-            transition: opacity 0.1s;
+            pointer-events: none;
+            transition: opacity 0.08s ease-out;
         }
-        .message-area.show { opacity: 1; }
+        .effect-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* ○（正解）エフェクト */
+        .correct-circle {
+            width: 140px;
+            height: 140px;
+            border: 16px solid #2b8a3e;
+            border-radius: 50%;
+            transform: scale(0.6);
+            transition: transform 0.12s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #correct-overlay.show .correct-circle { transform: scale(1); }
+
+        /* ✕（不正解）エフェクト */
+        .incorrect-cross {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            transform: scale(0.6);
+            transition: transform 0.12s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .incorrect-cross::before, .incorrect-cross::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 16px;
+            background-color: #f03e3e;
+            border-radius: 8px;
+        }
+        .incorrect-cross::before { transform: translateY(-50%) rotate(45deg); }
+        .incorrect-cross::after { transform: translateY(-50%) rotate(-45deg); }
+        #incorrect-overlay.show .incorrect-cross { transform: scale(1); }
     </style>
 </head>
 <body>
 
 <div id="app">
+    <div id="correct-overlay" class="effect-overlay">
+        <div class="correct-circle"></div>
+    </div>
+
+    <div id="incorrect-overlay" class="effect-overlay">
+        <div class="incorrect-cross"></div>
+    </div>
+
     <div id="start-screen" class="screen active">
         <h2>Clock 差分判定</h2>
         <p>現在位置の時計から目標の時計へ<br>針を合わせる最短手数を答えてください。</p>
@@ -192,8 +252,6 @@
             </svg>
         </div>
 
-        <div id="message-area" class="message-area"></div>
-
         <div class="btn-grid" id="button-container"></div>
     </div>
 
@@ -201,6 +259,7 @@
         <h2>リザルト</h2>
         <p>10問正解のタイム:</p>
         <div class="result-time"><span id="total-time">0.00</span> 秒</div>
+        <div class="result-miss">ミス回数: <span id="total-miss">0</span> 回</div>
         <button class="btn-start" onclick="startQuiz()">もう一度挑戦</button>
     </div>
 </div>
@@ -208,15 +267,19 @@
 <script>
     let currentStep = 0;
     let startTime = 0;
+    let totalPenaltyTime = 0; 
+    let effectStartTime = 0;  
     let leftTime = 0;
     let rightTime = 0;
     let correctAnswer = 0;
     let isRunning = false;
-    let messageTimeoutId = null;
+    let isTransitioning = false;
+    let missCount = 0; // ミス回数の記録用
 
     const btnContainer = document.getElementById('button-container');
-    const msgArea = document.getElementById('message-area');
     const arrowPath = document.getElementById('arrow-path');
+    const correctOverlay = document.getElementById('correct-overlay');
+    const incorrectOverlay = document.getElementById('incorrect-overlay');
 
     const buttonLayout = [
         [0, true],
@@ -256,9 +319,11 @@
 
     function startQuiz() {
         currentStep = 0;
+        totalPenaltyTime = 0;
+        missCount = 0;
         startTime = performance.now();
         isRunning = true;
-        clearMessage();
+        isTransitioning = false;
         nextQuestion();
         showScreen('quiz-screen');
         updateTimer();
@@ -266,9 +331,18 @@
 
     function updateTimer() {
         if (!isRunning) return;
-        const now = performance.now();
-        const elapsed = ((now - startTime) / 1000).toFixed(2);
-        document.getElementById('live-time').innerText = elapsed;
+        
+        let now = performance.now();
+        let elapsed;
+        
+        if (isTransitioning) {
+            // 【仕様通り】正解エフェクト中のみタイム表示の進行を固定
+            elapsed = ((effectStartTime - startTime - totalPenaltyTime) / 1000);
+        } else {
+            elapsed = ((now - startTime - totalPenaltyTime) / 1000);
+        }
+        
+        document.getElementById('live-time').innerText = elapsed.toFixed(2);
         requestAnimationFrame(updateTimer);
     }
 
@@ -306,31 +380,48 @@
     }
 
     function checkAnswer(selected) {
+        if (isTransitioning) return;
+
         if (selected === correctAnswer) {
-            clearMessage();
-            nextQuestion();
+            triggerCorrectEffect();
         } else {
-            showMessage("× 違います！");
+            missCount++; // ミスをカウント
+            triggerIncorrectEffect();
         }
     }
 
-    function showMessage(text) {
-        msgArea.innerText = text;
-        msgArea.classList.add('show');
-        if (messageTimeoutId) clearTimeout(messageTimeoutId);
-        messageTimeoutId = setTimeout(() => msgArea.classList.remove('show'), 1000);
+    // 正解時の演出（タイマー停止あり）
+    function triggerCorrectEffect() {
+        isTransitioning = true;
+        effectStartTime = performance.now(); 
+        correctOverlay.classList.add('show');
+
+        setTimeout(() => {
+            correctOverlay.classList.remove('show');
+            let effectEndTime = performance.now();
+            totalPenaltyTime += (effectEndTime - effectStartTime); // 演出時間を差し引く
+            isTransitioning = false;
+            nextQuestion();
+        }, 250);
     }
 
-    function clearMessage() {
-        msgArea.classList.remove('show');
-        if (messageTimeoutId) clearTimeout(messageTimeoutId);
+    // 不正解時の演出（タイマーは停止しない）
+    function triggerIncorrectEffect() {
+        isTransitioning = true; // 演出中の連続タップを防止
+        incorrectOverlay.classList.add('show');
+
+        setTimeout(() => {
+            incorrectOverlay.classList.remove('show');
+            isTransitioning = false; // 問題は進めず、入力を再開可能にする
+        }, 250);
     }
 
     function endQuiz() {
         isRunning = false;
         const endTime = performance.now();
-        const totalTime = ((endTime - startTime) / 1000).toFixed(2);
+        const totalTime = ((endTime - startTime - totalPenaltyTime) / 1000).toFixed(2);
         document.getElementById('total-time').innerText = totalTime;
+        document.getElementById('total-miss').innerText = missCount; // 結果に反映
         showScreen('result-screen');
     }
 </script>
