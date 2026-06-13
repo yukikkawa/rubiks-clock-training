@@ -125,23 +125,31 @@
             padding: 4px 12px;
             border-radius: 6px;
         }
+        .btn-pause {
+            background-color: #e9ecef;
+            color: #495057;
+            font-size: 12px;
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 6px;
+        }
         
         /* リザルト表示 */
-        .result-formula {
-            font-size: 16px;
-            color: #495057;
-            line-height: 1.8;
-            margin: 15px 0 8px 0;
-        }
-        .result-formula .result-total {
-            font-size: 28px;
+        .result-total {
+            font-size: 32px;
             font-weight: bold;
             color: #d6336c;
+            margin: 15px 0 2px 0;
+        }
+        .result-formula {
+            font-size: 14px;
+            color: #868e96;
+            margin-bottom: 20px;
         }
         .result-best {
             font-size: 15px;
             color: #868e96;
-            margin-bottom: 25px;
+            margin-bottom: 4px;
         }
         .result-best span {
             font-weight: bold;
@@ -177,9 +185,9 @@
         }
         .start-best span {
             font-weight: bold;
-            color: #2b8a3e;
+            color: #495057;
         }
-
+        .start-best { font-size: 15px; }
         /* エフェクト用オーバーレイ共通 */
         .effect-overlay {
             position: absolute;
@@ -256,6 +264,47 @@
             text-shadow: 0 0 15px rgba(255,255,255,0.9), 0 0 30px rgba(255,255,255,0.9);
         }
 
+        /* カスタム確認モーダル */
+        #confirm-modal {
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 20px;
+            width: 85%;
+            max-width: 320px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        .modal-content p {
+            color: #212529;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 0 0 24px 0;
+            line-height: 1.5;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+        }
+        .btn-modal {
+            flex: 1;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: bold;
+        }
+        .btn-confirm { background-color: #f03e3e; color: white; }
+        .btn-cancel { background-color: #e9ecef; color: #495057; }
+
+        #pause-overlay {
+            background: #f8f9fa; /* 時計を完全に隠すために不透明な背景 */
+            z-index: 25;
+            flex-direction: column;
+        }
+
         .btn-reset {
             background: none;
             border: none;
@@ -275,6 +324,16 @@
         <div class="correct-circle"></div>
     </div>
 
+    <div id="confirm-modal" class="effect-overlay">
+        <div class="modal-content">
+            <p id="confirm-message">メッセージ</p>
+            <div class="modal-buttons">
+                <button class="btn-modal btn-cancel" onclick="closeConfirmModal()">キャンセル</button>
+                <button class="btn-modal btn-confirm" onclick="executeConfirmAction()">はい</button>
+            </div>
+        </div>
+    </div>
+
     <div id="incorrect-overlay" class="effect-overlay">
         <div class="incorrect-cross"></div>
     </div>
@@ -283,14 +342,26 @@
         <div id="countdown-display"></div>
     </div>
 
+    <div id="pause-overlay" class="effect-overlay">
+        <div style="text-align: center;">
+            <h2 style="margin-bottom: 10px;">一時停止中</h2>
+            <div style="margin-bottom: 20px; color: #495057; font-size: 15px; line-height: 1.6;">
+                <div>現在の進捗: <span id="pause-current-step" style="font-weight: bold; color: #228be6;">--</span> / 10 問目</div>
+                <div>これまでのミス: <span id="pause-miss-count" style="font-weight: bold; color: #f03e3e;">--</span> 回</div>
+            </div>
+            <button class="btn-start" style="width: auto;" onclick="togglePause()">再開する</button>
+            <button class="btn-reset" style="display: block; margin: 20px auto 0 auto;" onclick="backToTitle()">タイトルに戻る</button>
+        </div>
+    </div>
+
     <div id="start-screen" class="screen active">
         <h2>Clock 差分判定</h2>
         <p>現在位置の時計から目標の時計へ<br>針を合わせる最短手数を答えてください。</p>
         <p>※矢印の向き（出題順）が毎回変わります。</p>
-        <p id="start-best" class="start-best" style="display: none;">これまでの最高記録: <span id="start-best-time">--</span> 秒</p>
-        <div id="start-stats" style="display: none; margin-top: 10px; font-size: 14px; color: #495057;">
+        <p id="start-best" class="start-best" style="display: none; color: #868e96; margin-top: 12px;">これまでの最高記録: <span id="start-best-time">--</span> 秒</p>
+        <div id="start-stats" style="display: none; margin-top: 15px; font-size: 15px; color: #868e96;">
             <div>直近5回の平均: <span id="start-avg" style="font-weight: bold; color: #228be6;">--</span> 秒</div>
-            <div style="font-size: 12px; color: #868e96; margin-top: 4px;">直近5回の記録: <span id="start-recent"></span></div>
+            <div style="margin-top: 12px; font-size: 12px; color: #adb5bd;">直近5回の記録: <span id="start-recent" style="color: #adb5bd; font-weight: bold;"></span></div>
         </div>
         <button class="btn-start" onclick="startQuiz()">トレーニング開始</button>
         <button class="btn-reset" onclick="confirmReset()">記録をリセットする</button>
@@ -299,6 +370,7 @@
     <div id="quiz-screen" class="screen">
         <div class="info-container">
             <div>問 <span id="current-question">1</span> / 10</div>
+            <button class="btn-pause" onclick="togglePause()">一時停止</button>
             <div class="live-timer"><span id="live-time">0.00</span> 秒</div>
         </div>
         
@@ -340,14 +412,15 @@
     <div id="result-screen" class="screen">
         <h2>リザルト</h2>
         <div id="new-record-badge" class="new-record-badge">🎉 新記録！</div>
-        <p>10問正解のタイム:</p>
+        <div class="result-total"><span id="total-time">0.00</span>秒</div>
         <div class="result-formula">
-            <span id="base-time">0.00</span>秒+（ミス <span id="total-miss">0</span> 回×2秒） = <span id="total-time" class="result-total">0.00</span> 秒
+            = <span id="base-time">0.00</span>秒 +（ミス<span id="total-miss">0</span>回×2秒）
         </div>
+        <div id="result-comparison" style="font-size: 15px; margin-bottom: 15px; min-height: 1.5em; color: #495057; font-weight: bold;"></div>
         <div class="result-best">最高記録: <span id="best-time">--</span> 秒</div>
-        <div id="result-stats" style="margin-bottom: 20px; font-size: 14px; color: #495057;">
+        <div id="result-stats" style="margin-bottom: 20px; font-size: 15px; color: #868e96;">
             <div>直近5回の平均: <span id="result-avg" style="font-weight: bold; color: #228be6;">--</span> 秒</div>
-            <div style="font-size: 12px; color: #868e96; margin-top: 4px;">直近5回の記録: <span id="result-recent"></span></div>
+            <div style="margin-top: 12px; font-size: 12px; color: #adb5bd;">直近6回の記録: <span id="result-recent" style="color: #adb5bd; font-weight: bold;"></span></div>
         </div>
         <button class="btn-start" onclick="startQuiz()">もう一度挑戦</button>
         <button class="btn-reset" onclick="confirmReset()">記録をリセットする</button>
@@ -359,11 +432,14 @@
     let startTime = 0;
     let totalPenaltyTime = 0; 
     let effectStartTime = 0;  
+    let pauseStartTime = 0;
     let leftTime = 0;
     let rightTime = 0;
     let correctAnswer = 0;
     let isRunning = false;
+    let isPaused = false;
     let isTransitioning = false;
+    let pendingConfirmAction = null;
     let missCount = 0; // ミス回数の記録用
 
     const BEST_TIME_KEY = 'clock-training-best-time';
@@ -445,33 +521,56 @@
 
     function updateStatsDisplay() {
         const history = getHistory();
-        const recent = history.slice(-5).reverse();
-        const avg = recent.length > 0 
-            ? (recent.reduce((a, b) => a + b, 0) / recent.length).toFixed(2)
-            : "--";
-
-        const recentStr = recent.length > 0 ? recent.map(n => n.toFixed(2) + '秒').join(', ') : 'なし';
-
-        // 開始画面とリザルト画面の両方を更新
-        ['start', 'result'].forEach(prefix => {
+        
+        const updateScreenStats = (prefix, listCount, avgCount) => {
             const container = document.getElementById(`${prefix}-stats`);
-            if (history.length > 0) {
-                container.style.display = 'block';
-                document.getElementById(`${prefix}-avg`).innerText = avg;
-                document.getElementById(`${prefix}-recent`).innerText = recentStr;
-            } else {
+            if (history.length === 0) {
                 container.style.display = 'none';
+                return;
             }
-        });
+            
+            const listItems = history.slice(-listCount).reverse();
+            const avgItems = history.slice(-avgCount);
+            
+            const avg = avgItems.length > 0 
+                ? (avgItems.reduce((a, b) => a + b, 0) / avgItems.length).toFixed(2)
+                : "--";
+            const listStr = listItems.length > 0 ? listItems.map(n => n.toFixed(2)).join(', ') : 'なし';
+
+            container.style.display = 'block';
+            document.getElementById(`${prefix}-avg`).innerText = avg;
+            document.getElementById(`${prefix}-recent`).innerText = listStr;
+        };
+
+        // 開始画面は直近5回の記録・平均
+        updateScreenStats('start', 5, 5);
+        // リザルト画面は直近6回の記録・5回の平均
+        updateScreenStats('result', 6, 5);
+    }
+
+    function showConfirmModal(message, action) {
+        document.getElementById('confirm-message').innerText = message;
+        pendingConfirmAction = action;
+        document.getElementById('confirm-modal').classList.add('show');
+    }
+
+    function closeConfirmModal() {
+        document.getElementById('confirm-modal').classList.remove('show');
+        pendingConfirmAction = null;
+    }
+
+    function executeConfirmAction() {
+        if (pendingConfirmAction) pendingConfirmAction();
+        closeConfirmModal();
     }
 
     function confirmReset() {
-        if (confirm("記録をリセットしますか？")) {
+        showConfirmModal("記録をリセットしますか？", () => {
             localStorage.removeItem(BEST_TIME_KEY);
             localStorage.removeItem(HISTORY_KEY);
             updateStartBestDisplay();
             updateStatsDisplay();
-        }
+        });
     }
 
     function startQuiz() {
@@ -479,6 +578,7 @@
         currentStep = 0;
         totalPenaltyTime = 0;
         missCount = 0;
+        isPaused = false;
         isTransitioning = true; // カウントダウン中の操作防止
 
         // クイズ画面へ切り替え（カウントダウンを見せるため）
@@ -528,10 +628,51 @@
         }, 800); // カウントダウンの間隔は0.8秒
     }
 
+    function togglePause() {
+        // エフェクト中やカウントダウン中はポーズ不可
+        if (isTransitioning) return;
+        if (!isRunning && !isPaused) return;
+
+        const now = performance.now();
+        const overlay = document.getElementById('pause-overlay');
+
+        if (!isPaused) {
+            // 一時停止
+            isPaused = true;
+            pauseStartTime = now;
+            isRunning = false; // タイマー更新を止める
+
+            // 進捗の表示更新
+            document.getElementById('pause-current-step').innerText = currentStep;
+            document.getElementById('pause-miss-count').innerText = missCount;
+
+            overlay.classList.add('show');
+        } else {
+            // 再開
+            const pauseDuration = performance.now() - pauseStartTime;
+            totalPenaltyTime += pauseDuration; // 止まっていた時間をペナルティとして加算（実質的に相殺）
+            isPaused = false;
+            isRunning = true;
+            overlay.classList.remove('show');
+            updateTimer(); // ループ再開
+        }
+    }
+
+    function backToTitle() {
+        showConfirmModal("計測を止めてタイトルに戻ります。よろしいですか？", () => {
+            isRunning = false;
+            isPaused = false;
+            isTransitioning = false;
+            document.getElementById('pause-overlay').classList.remove('show');
+            showScreen('start-screen');
+        });
+    }
+
     function getBaseElapsedSec(now = performance.now()) {
+        const calcNow = isPaused ? pauseStartTime : now;
         const baseMs = isTransitioning
             ? effectStartTime - startTime - totalPenaltyTime
-            : now - startTime - totalPenaltyTime;
+            : calcNow - startTime - totalPenaltyTime;
         return baseMs / 1000;
     }
 
@@ -580,7 +721,7 @@
     }
 
     function checkAnswer(selected) {
-        if (isTransitioning) return;
+        if (isTransitioning || isPaused) return;
 
         if (selected === correctAnswer) {
             triggerCorrectEffect();
@@ -620,6 +761,19 @@
         isRunning = false;
         const baseTimeNum = getBaseElapsedSec(performance.now());
         const resultTimeNum = baseTimeNum + missCount * MISS_PENALTY_SEC;
+
+        // 今回の保存前に、過去最大5回分（N-1〜N-5）の平均を取得して比較
+        const history = getHistory();
+        const recentForComparison = history.slice(-5);
+        let comparisonHTML = "";
+        if (recentForComparison.length > 0) {
+            const avg = recentForComparison.reduce((a, b) => a + b, 0) / recentForComparison.length;
+            const diffValue = resultTimeNum - avg;
+            const sign = diffValue > 0 ? "+" : "";
+            comparisonHTML = `過去${recentForComparison.length}回の平均から ${sign}${diffValue.toFixed(2)}秒`;
+        }
+        document.getElementById('result-comparison').innerHTML = comparisonHTML;
+
         const previousBest = getBestTime();
         const isNewRecord = previousBest === null || resultTimeNum < previousBest;
 
