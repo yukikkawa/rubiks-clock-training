@@ -127,17 +127,57 @@
         }
         
         /* リザルト表示 */
-        .result-time {
-            font-size: 36px;
+        .result-formula {
+            font-size: 16px;
+            color: #495057;
+            line-height: 1.8;
+            margin: 15px 0 8px 0;
+        }
+        .result-formula .result-total {
+            font-size: 28px;
             font-weight: bold;
             color: #d6336c;
-            margin: 15px 0 5px 0;
         }
-        .result-miss {
-            font-size: 18px;
+        .result-best {
+            font-size: 15px;
+            color: #868e96;
+            margin-bottom: 25px;
+        }
+        .result-best span {
             font-weight: bold;
             color: #495057;
-            margin-bottom: 25px;
+        }
+        .new-record-badge {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: linear-gradient(135deg, #ffd43b 0%, #fab005 100%);
+            color: #862e00;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 10px 20px;
+            border-radius: 999px;
+            margin: 0 auto 12px auto;
+            width: fit-content;
+            box-shadow: 0 4px 12px rgba(250, 176, 5, 0.35);
+            animation: record-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .new-record-badge.show {
+            display: flex;
+        }
+        @keyframes record-pop {
+            0% { transform: scale(0.6); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .start-best {
+            font-size: 14px;
+            color: #868e96;
+            margin-top: 12px;
+        }
+        .start-best span {
+            font-weight: bold;
+            color: #2b8a3e;
         }
 
         /* エフェクト用オーバーレイ共通 */
@@ -194,6 +234,38 @@
         .incorrect-cross::before { transform: translateY(-50%) rotate(45deg); }
         .incorrect-cross::after { transform: translateY(-50%) rotate(-45deg); }
         #incorrect-overlay.show .incorrect-cross { transform: scale(1); }
+
+        /* カウントダウン演出 */
+        #countdown-overlay {
+            background: rgba(255, 255, 255, 0.4); /* 3,2,1の間は白濁 */
+        }
+        #countdown-overlay.is-start {
+            background: none; /* START!の瞬間は背景なし */
+            pointer-events: none; /* START!の瞬間は操作を透過 */
+        }
+        #countdown-display {
+            font-size: 100px;
+            font-weight: 900;
+            color: #2b8a3e;
+            text-shadow: none; /* 3,2,1の間は影なし */
+            transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 20;
+        }
+        #countdown-overlay.is-start #countdown-display {
+            /* START!の瞬間だけ視認性のための光彩を付ける */
+            text-shadow: 0 0 15px rgba(255,255,255,0.9), 0 0 30px rgba(255,255,255,0.9);
+        }
+
+        .btn-reset {
+            background: none;
+            border: none;
+            color: #fa5252;
+            text-decoration: underline;
+            font-size: 13px;
+            margin-top: 15px;
+            cursor: pointer;
+            padding: 5px 10px;
+        }
     </style>
 </head>
 <body>
@@ -207,11 +279,21 @@
         <div class="incorrect-cross"></div>
     </div>
 
+    <div id="countdown-overlay" class="effect-overlay">
+        <div id="countdown-display"></div>
+    </div>
+
     <div id="start-screen" class="screen active">
         <h2>Clock 差分判定</h2>
         <p>現在位置の時計から目標の時計へ<br>針を合わせる最短手数を答えてください。</p>
         <p>※矢印の向き（出題順）が毎回変わります。</p>
+        <p id="start-best" class="start-best" style="display: none;">これまでの最高記録: <span id="start-best-time">--</span> 秒</p>
+        <div id="start-stats" style="display: none; margin-top: 10px; font-size: 14px; color: #495057;">
+            <div>直近5回の平均: <span id="start-avg" style="font-weight: bold; color: #228be6;">--</span> 秒</div>
+            <div style="font-size: 12px; color: #868e96; margin-top: 4px;">直近5回の記録: <span id="start-recent"></span></div>
+        </div>
         <button class="btn-start" onclick="startQuiz()">トレーニング開始</button>
+        <button class="btn-reset" onclick="confirmReset()">記録をリセットする</button>
     </div>
 
     <div id="quiz-screen" class="screen">
@@ -257,10 +339,18 @@
 
     <div id="result-screen" class="screen">
         <h2>リザルト</h2>
+        <div id="new-record-badge" class="new-record-badge">🎉 新記録！</div>
         <p>10問正解のタイム:</p>
-        <div class="result-time"><span id="total-time">0.00</span> 秒</div>
-        <div class="result-miss">ミス回数: <span id="total-miss">0</span> 回</div>
+        <div class="result-formula">
+            <span id="base-time">0.00</span>秒+（ミス <span id="total-miss">0</span> 回×2秒） = <span id="total-time" class="result-total">0.00</span> 秒
+        </div>
+        <div class="result-best">最高記録: <span id="best-time">--</span> 秒</div>
+        <div id="result-stats" style="margin-bottom: 20px; font-size: 14px; color: #495057;">
+            <div>直近5回の平均: <span id="result-avg" style="font-weight: bold; color: #228be6;">--</span> 秒</div>
+            <div style="font-size: 12px; color: #868e96; margin-top: 4px;">直近5回の記録: <span id="result-recent"></span></div>
+        </div>
         <button class="btn-start" onclick="startQuiz()">もう一度挑戦</button>
+        <button class="btn-reset" onclick="confirmReset()">記録をリセットする</button>
     </div>
 </div>
 
@@ -275,6 +365,10 @@
     let isRunning = false;
     let isTransitioning = false;
     let missCount = 0; // ミス回数の記録用
+
+    const BEST_TIME_KEY = 'clock-training-best-time';
+    const HISTORY_KEY = 'clock-training-history';
+    const MISS_PENALTY_SEC = 2;
 
     const btnContainer = document.getElementById('button-container');
     const arrowPath = document.getElementById('arrow-path');
@@ -317,32 +411,138 @@
         document.getElementById(screenId).classList.add('active');
     }
 
+    function getBestTime() {
+        const stored = localStorage.getItem(BEST_TIME_KEY);
+        return stored !== null ? parseFloat(stored) : null;
+    }
+
+    function saveBestTime(time) {
+        localStorage.setItem(BEST_TIME_KEY, time.toFixed(2));
+    }
+
+    function updateStartBestDisplay() {
+        const best = getBestTime();
+        const el = document.getElementById('start-best');
+        if (best === null) {
+            el.style.display = 'none';
+            return;
+        }
+        document.getElementById('start-best-time').innerText = best.toFixed(2);
+        el.style.display = 'block';
+    }
+
+    function getHistory() {
+        const stored = localStorage.getItem(HISTORY_KEY);
+        return stored ? JSON.parse(stored).map(Number) : [];
+    }
+
+    function saveToHistory(time) {
+        const history = getHistory();
+        history.push(parseFloat(time.toFixed(2)));
+        if (history.length > 50) history.shift(); // 履歴は最大50件保持
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    }
+
+    function updateStatsDisplay() {
+        const history = getHistory();
+        const recent = history.slice(-5).reverse();
+        const avg = recent.length > 0 
+            ? (recent.reduce((a, b) => a + b, 0) / recent.length).toFixed(2)
+            : "--";
+
+        const recentStr = recent.length > 0 ? recent.map(n => n.toFixed(2) + '秒').join(', ') : 'なし';
+
+        // 開始画面とリザルト画面の両方を更新
+        ['start', 'result'].forEach(prefix => {
+            const container = document.getElementById(`${prefix}-stats`);
+            if (history.length > 0) {
+                container.style.display = 'block';
+                document.getElementById(`${prefix}-avg`).innerText = avg;
+                document.getElementById(`${prefix}-recent`).innerText = recentStr;
+            } else {
+                container.style.display = 'none';
+            }
+        });
+    }
+
+    function confirmReset() {
+        if (confirm("記録をリセットしますか？")) {
+            localStorage.removeItem(BEST_TIME_KEY);
+            localStorage.removeItem(HISTORY_KEY);
+            updateStartBestDisplay();
+            updateStatsDisplay();
+        }
+    }
+
     function startQuiz() {
+        // 初期化
         currentStep = 0;
         totalPenaltyTime = 0;
         missCount = 0;
-        startTime = performance.now();
-        isRunning = true;
-        isTransitioning = false;
-        nextQuestion();
+        isTransitioning = true; // カウントダウン中の操作防止
+
+        // クイズ画面へ切り替え（カウントダウンを見せるため）
         showScreen('quiz-screen');
-        updateTimer();
+        document.getElementById('live-time').innerText = "0.00";
+        
+        // カウントダウン開始
+        runCountdown(() => {
+            startTime = performance.now();
+            isRunning = true;
+            isTransitioning = false;
+            nextQuestion();
+            updateTimer();
+        });
+    }
+
+    function runCountdown(callback) {
+        const overlay = document.getElementById('countdown-overlay');
+        const display = document.getElementById('countdown-display');
+        let count = 3;
+
+        overlay.classList.remove('is-start');
+        overlay.classList.add('show');
+        display.innerText = count;
+
+        const timer = setInterval(() => {
+            count--;
+            if (count > 0) {
+                display.innerText = count;
+                display.style.transform = 'scale(1.2)';
+                setTimeout(() => { if(count > 0) display.style.transform = 'scale(1)'; }, 100);
+            } else if (count === 0) {
+                overlay.classList.add('is-start');
+                display.innerText = "START!";
+                display.style.transform = 'scale(1.3)';
+                
+                clearInterval(timer);
+                // STARTが表示された瞬間にゲーム開始（操作可能にする）
+                callback();
+                
+                // START!の表示時間を0.25秒(250ms)にして終了する
+                setTimeout(() => {
+                    overlay.classList.remove('show');
+                    display.style.transform = 'scale(1)';
+                }, 250);
+            }
+        }, 800); // カウントダウンの間隔は0.8秒
+    }
+
+    function getBaseElapsedSec(now = performance.now()) {
+        const baseMs = isTransitioning
+            ? effectStartTime - startTime - totalPenaltyTime
+            : now - startTime - totalPenaltyTime;
+        return baseMs / 1000;
+    }
+
+    function getResultTimeSec(now = performance.now()) {
+        return getBaseElapsedSec(now) + missCount * MISS_PENALTY_SEC;
     }
 
     function updateTimer() {
         if (!isRunning) return;
-        
-        let now = performance.now();
-        let elapsed;
-        
-        if (isTransitioning) {
-            // 【仕様通り】正解エフェクト中のみタイム表示の進行を固定
-            elapsed = ((effectStartTime - startTime - totalPenaltyTime) / 1000);
-        } else {
-            elapsed = ((now - startTime - totalPenaltyTime) / 1000);
-        }
-        
-        document.getElementById('live-time').innerText = elapsed.toFixed(2);
+
+        document.getElementById('live-time').innerText = getResultTimeSec().toFixed(2);
         requestAnimationFrame(updateTimer);
     }
 
@@ -418,12 +618,32 @@
 
     function endQuiz() {
         isRunning = false;
-        const endTime = performance.now();
-        const totalTime = ((endTime - startTime - totalPenaltyTime) / 1000).toFixed(2);
-        document.getElementById('total-time').innerText = totalTime;
-        document.getElementById('total-miss').innerText = missCount; // 結果に反映
+        const baseTimeNum = getBaseElapsedSec(performance.now());
+        const resultTimeNum = baseTimeNum + missCount * MISS_PENALTY_SEC;
+        const previousBest = getBestTime();
+        const isNewRecord = previousBest === null || resultTimeNum < previousBest;
+
+        saveToHistory(resultTimeNum);
+
+        if (isNewRecord) {
+            saveBestTime(resultTimeNum);
+        }
+
+        document.getElementById('base-time').innerText = baseTimeNum.toFixed(2);
+        document.getElementById('total-miss').innerText = missCount;
+        document.getElementById('total-time').innerText = resultTimeNum.toFixed(2);
+        document.getElementById('best-time').innerText = getBestTime().toFixed(2);
+
+        const badge = document.getElementById('new-record-badge');
+        badge.classList.toggle('show', isNewRecord);
+
+        updateStartBestDisplay();
+        updateStatsDisplay();
         showScreen('result-screen');
     }
+
+    updateStartBestDisplay();
+    updateStatsDisplay();
 </script>
 </body>
 </html>
