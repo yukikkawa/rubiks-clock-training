@@ -67,6 +67,26 @@
             height: 110px;
         }
         
+        /* 難易度選択ボタン */
+        .difficulty-container {
+            display: flex;
+            gap: 8px;
+            margin: 15px 0;
+        }
+        .btn-difficulty {
+            flex: 1;
+            background-color: #e9ecef;
+            color: #495057;
+            padding: 10px 0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .btn-difficulty.active {
+            background-color: #495057;
+            color: white;
+        }
+
         /* ボタンのスタイル */
         button {
             font-family: inherit;
@@ -357,12 +377,19 @@
     <div id="start-screen" class="screen active">
         <h2>Clock 差分判定</h2>
         <p>現在位置の時計から目標の時計へ<br>針を合わせる最短手数を答えてください。</p>
-        <p>※矢印の向き（出題順）が毎回変わります。</p>
-        <p id="start-best" class="start-best" style="display: none; color: #868e96; margin-top: 12px;">これまでの最高記録: <span id="start-best-time">--</span> 秒</p>
+        <p id="start-best" class="start-best" style="display: none; color: #868e96; margin-top: 12px;">ベストタイム: <span id="start-best-time">--</span> 秒</p>
+
         <div id="start-stats" style="display: none; margin-top: 15px; font-size: 15px; color: #868e96;">
             <div>直近5回の平均: <span id="start-avg" style="font-weight: bold; color: #228be6;">--</span> 秒</div>
             <div style="margin-top: 12px; font-size: 12px; color: #adb5bd;">直近5回の記録: <span id="start-recent" style="color: #adb5bd; font-weight: bold;"></span></div>
         </div>
+        
+        <div class="difficulty-container">
+            <button class="btn-difficulty active" data-level="beginner" onclick="selectDifficulty('beginner')">初級</button>
+            <button class="btn-difficulty" data-level="intermediate" onclick="selectDifficulty('intermediate')">中級</button>
+            <button class="btn-difficulty" data-level="advanced" onclick="selectDifficulty('advanced')">上級</button>
+        </div>
+        <div id="start-difficulty-desc" style="font-size: 12px; color: #868e96; margin-top: -10px; margin-bottom: 15px; min-height: 1.5em;"></div>
         <button class="btn-start" onclick="startQuiz()">トレーニング開始</button>
         <button class="btn-reset" onclick="confirmReset()">記録をリセットする</button>
     </div>
@@ -416,12 +443,22 @@
         <div class="result-formula">
             = <span id="base-time">0.00</span>秒 +（ミス<span id="total-miss">0</span>回×2秒）
         </div>
+        <div id="result-difficulty" style="font-size: 14px; color: #868e96; margin-bottom: 5px;">難易度: <span id="result-diff-label">--</span></div>
         <div id="result-comparison" style="font-size: 15px; margin-bottom: 15px; min-height: 1.5em; color: #495057; font-weight: bold;"></div>
-        <div class="result-best">最高記録: <span id="best-time">--</span> 秒</div>
+        <div class="result-best">ベストタイム: <span id="best-time">--</span> 秒</div>
         <div id="result-stats" style="margin-bottom: 20px; font-size: 15px; color: #868e96;">
             <div>直近5回の平均: <span id="result-avg" style="font-weight: bold; color: #228be6;">--</span> 秒</div>
             <div style="margin-top: 12px; font-size: 12px; color: #adb5bd;">直近6回の記録: <span id="result-recent" style="color: #adb5bd; font-weight: bold;"></span></div>
         </div>
+
+        <div class="difficulty-container">
+            <button class="btn-difficulty active" data-level="beginner" onclick="selectDifficulty('beginner')">初級</button>
+            <button class="btn-difficulty" data-level="intermediate" onclick="selectDifficulty('intermediate')">中級</button>
+            <button class="btn-difficulty" data-level="advanced" onclick="selectDifficulty('advanced')">上級</button>
+        </div>
+        <div id="result-difficulty-desc" style="font-size: 12px; color: #868e96; margin-top: -10px; margin-bottom: 15px; min-height: 1.5em;"></div>
+        <div id="difficulty-bests-list" style="margin-top: 10px; font-size: 13px; color: #adb5bd; display: flex; justify-content: space-around; width: 100%;"></div>
+
         <button class="btn-start" onclick="startQuiz()">もう一度挑戦</button>
         <button class="btn-reset" onclick="confirmReset()">記録をリセットする</button>
     </div>
@@ -440,16 +477,58 @@
     let isPaused = false;
     let isTransitioning = false;
     let pendingConfirmAction = null;
+    const difficultyDescs = {
+        'beginner': '矢印の向きが左から右に固定されます。',
+        'intermediate': '矢印の向きがランダムに変わります。',
+        'advanced': '中級と同じルールです。実力を試しましょう！'
+    };
+
+    let playedDifficulty = 'beginner'; 
+    let selectedDifficulty = 'beginner'; // beginner, intermediate, advanced
     let missCount = 0; // ミス回数の記録用
 
-    const BEST_TIME_KEY = 'clock-training-best-time';
-    const HISTORY_KEY = 'clock-training-history';
+    const BEST_TIME_BASE_KEY = 'clock-training-best-time';
+    const HISTORY_BASE_KEY = 'clock-training-history';
     const MISS_PENALTY_SEC = 2;
 
     const btnContainer = document.getElementById('button-container');
     const arrowPath = document.getElementById('arrow-path');
     const correctOverlay = document.getElementById('correct-overlay');
     const incorrectOverlay = document.getElementById('incorrect-overlay');
+
+    function getDifficultyLabel(diff = selectedDifficulty) {
+        const labels = { 'beginner': '初級', 'intermediate': '中級', 'advanced': '上級' };
+        return labels[diff] || '';
+    }
+
+    function getBestTimeKey(diff) {
+        const d = diff || selectedDifficulty;
+        return `${BEST_TIME_BASE_KEY}-${d}`;
+    }
+
+    function getHistoryKey(diff) {
+        const d = diff || selectedDifficulty;
+        return `${HISTORY_BASE_KEY}-${d}`;
+    }
+
+    function selectDifficulty(level) {
+        selectedDifficulty = level;
+        // UIの選択状態を更新
+        document.querySelectorAll('.btn-difficulty').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-level') === level);
+        });
+
+        // 説明文の更新
+        const desc = difficultyDescs[level];
+        const startDescEl = document.getElementById('start-difficulty-desc');
+        const resultDescEl = document.getElementById('result-difficulty-desc');
+        if (startDescEl) startDescEl.innerText = desc;
+        if (resultDescEl) resultDescEl.innerText = desc;
+
+        // 開始画面の表示を更新
+        updateBestTimeDisplay();
+        updateStatsDisplay();
+    }
 
     const buttonLayout = [
         [0, true],
@@ -487,65 +566,92 @@
         document.getElementById(screenId).classList.add('active');
     }
 
-    function getBestTime() {
-        const stored = localStorage.getItem(BEST_TIME_KEY);
+    function saveBestTime(time) {
+        localStorage.setItem(getBestTimeKey(), time.toFixed(2));
+    }
+
+    function updateBestTimeDisplay() {
+        // 開始画面の更新 (選択中の難易度を表示)
+        const startBest = getBestTime(selectedDifficulty);
+        
+        const startBestEl = document.getElementById('start-best');
+        if (startBest === null) {
+            startBestEl.style.display = 'none';
+        } else {
+            document.getElementById('start-best-time').innerText = startBest.toFixed(2);
+            startBestEl.style.display = 'block';
+        }
+
+        // リザルト画面のベストタイムは、実際にプレイした難易度のものを保持する
+        const resultBest = getBestTime(playedDifficulty);
+        if (resultBest === null) {
+            document.getElementById('best-time').innerText = "--";
+        } else {
+            document.getElementById('best-time').innerText = resultBest.toFixed(2);
+        }
+    }
+
+    function updateStartScreenDisplay() {
+        updateBestTimeDisplay();
+        updateStatsDisplay();
+    }
+
+    function updateDifficultyBestsList() {
+        const levels = ['beginner', 'intermediate', 'advanced'];
+        const container = document.getElementById('difficulty-bests-list');
+        if (!container) return;
+        container.innerHTML = levels.map(l => {
+            const best = getBestTime(l);
+            const label = getDifficultyLabel(l);
+            return `<div>${label}: ${best ? best.toFixed(2) : '--'}s</div>`;
+        }).join('');
+    }
+
+    function getBestTime(diff) {
+        const stored = localStorage.getItem(getBestTimeKey(diff));
         return stored !== null ? parseFloat(stored) : null;
     }
 
-    function saveBestTime(time) {
-        localStorage.setItem(BEST_TIME_KEY, time.toFixed(2));
-    }
-
-    function updateStartBestDisplay() {
-        const best = getBestTime();
-        const el = document.getElementById('start-best');
-        if (best === null) {
-            el.style.display = 'none';
-            return;
-        }
-        document.getElementById('start-best-time').innerText = best.toFixed(2);
-        el.style.display = 'block';
-    }
-
-    function getHistory() {
-        const stored = localStorage.getItem(HISTORY_KEY);
+    function getHistory(diff) {
+        const stored = localStorage.getItem(getHistoryKey(diff));
         return stored ? JSON.parse(stored).map(Number) : [];
     }
 
     function saveToHistory(time) {
-        const history = getHistory();
+        const history = getHistory(selectedDifficulty);
         history.push(parseFloat(time.toFixed(2)));
         if (history.length > 50) history.shift(); // 履歴は最大50件保持
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+        localStorage.setItem(getHistoryKey(selectedDifficulty), JSON.stringify(history));
+    }
+
+    function updateScreenStats(prefix, diff, listCount, avgCount) {
+        const history = getHistory(diff);
+        const container = document.getElementById(`${prefix}-stats`);
+        if (!container) return;
+        
+        if (history.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+        
+        const listItems = history.slice(-listCount).reverse();
+        const avgItems = history.slice(-avgCount);
+        
+        const avg = avgItems.length > 0 
+            ? (avgItems.reduce((a, b) => a + b, 0) / avgItems.length).toFixed(2)
+            : "--";
+        const listStr = listItems.length > 0 ? listItems.map(n => n.toFixed(2)).join(', ') : 'なし';
+
+        container.style.display = 'block';
+        document.getElementById(`${prefix}-avg`).innerText = avg;
+        document.getElementById(`${prefix}-recent`).innerText = listStr;
     }
 
     function updateStatsDisplay() {
-        const history = getHistory();
-        
-        const updateScreenStats = (prefix, listCount, avgCount) => {
-            const container = document.getElementById(`${prefix}-stats`);
-            if (history.length === 0) {
-                container.style.display = 'none';
-                return;
-            }
-            
-            const listItems = history.slice(-listCount).reverse();
-            const avgItems = history.slice(-avgCount);
-            
-            const avg = avgItems.length > 0 
-                ? (avgItems.reduce((a, b) => a + b, 0) / avgItems.length).toFixed(2)
-                : "--";
-            const listStr = listItems.length > 0 ? listItems.map(n => n.toFixed(2)).join(', ') : 'なし';
-
-            container.style.display = 'block';
-            document.getElementById(`${prefix}-avg`).innerText = avg;
-            document.getElementById(`${prefix}-recent`).innerText = listStr;
-        };
-
-        // 開始画面は直近5回の記録・平均
-        updateScreenStats('start', 5, 5);
-        // リザルト画面は直近6回の記録・5回の平均
-        updateScreenStats('result', 6, 5);
+        // 開始画面は選択中の難易度を表示
+        updateScreenStats('start', selectedDifficulty, 5, 5);
+        // リザルト画面は最後にプレイした難易度を表示（必要に応じて呼ぶ）
+        updateScreenStats('result', playedDifficulty, 6, 5);
     }
 
     function showConfirmModal(message, action) {
@@ -565,16 +671,20 @@
     }
 
     function confirmReset() {
-        showConfirmModal("記録をリセットしますか？", () => {
-            localStorage.removeItem(BEST_TIME_KEY);
-            localStorage.removeItem(HISTORY_KEY);
-            updateStartBestDisplay();
+        const label = getDifficultyLabel(selectedDifficulty);
+        showConfirmModal(`${label}の記録をリセットしますか？`, () => {
+            localStorage.removeItem(getBestTimeKey());
+            localStorage.removeItem(getHistoryKey());
+            updateBestTimeDisplay();
             updateStatsDisplay();
+            updateStartScreenDisplay();
+            updateDifficultyBestsList();
         });
     }
 
     function startQuiz() {
         // 初期化
+        playedDifficulty = selectedDifficulty;
         currentStep = 0;
         totalPenaltyTime = 0;
         missCount = 0;
@@ -698,7 +808,7 @@
         leftTime = Math.floor(Math.random() * 12);
         rightTime = Math.floor(Math.random() * 12);
 
-        const isLeftToRight = Math.random() < 0.5;
+        const isLeftToRight = playedDifficulty === 'beginner' ? true : Math.random() < 0.5;
 
         let fromTime, toTime;
         if (isLeftToRight) {
@@ -762,8 +872,8 @@
         const baseTimeNum = getBaseElapsedSec(performance.now());
         const resultTimeNum = baseTimeNum + missCount * MISS_PENALTY_SEC;
 
-        // 今回の保存前に、過去最大5回分（N-1〜N-5）の平均を取得して比較
-        const history = getHistory();
+        // 保存前に過去の履歴と比較
+        const history = getHistory(playedDifficulty);
         const recentForComparison = history.slice(-5);
         let comparisonHTML = "";
         if (recentForComparison.length > 0) {
@@ -774,7 +884,7 @@
         }
         document.getElementById('result-comparison').innerHTML = comparisonHTML;
 
-        const previousBest = getBestTime();
+        const previousBest = getBestTime(playedDifficulty);
         const isNewRecord = previousBest === null || resultTimeNum < previousBest;
 
         saveToHistory(resultTimeNum);
@@ -786,18 +896,21 @@
         document.getElementById('base-time').innerText = baseTimeNum.toFixed(2);
         document.getElementById('total-miss').innerText = missCount;
         document.getElementById('total-time').innerText = resultTimeNum.toFixed(2);
-        document.getElementById('best-time').innerText = getBestTime().toFixed(2);
+        document.getElementById('result-diff-label').innerText = getDifficultyLabel(playedDifficulty);
+        
+        const bestNow = getBestTime(playedDifficulty);
+        document.getElementById('best-time').innerText = bestNow !== null ? bestNow.toFixed(2) : "--";
 
         const badge = document.getElementById('new-record-badge');
         badge.classList.toggle('show', isNewRecord);
 
-        updateStartBestDisplay();
-        updateStatsDisplay();
+        updateScreenStats('result', playedDifficulty, 6, 5);
+        updateDifficultyBestsList();
         showScreen('result-screen');
     }
 
-    updateStartBestDisplay();
-    updateStatsDisplay();
+    selectDifficulty(selectedDifficulty);
+    updateDifficultyBestsList();
 </script>
 </body>
 </html>
