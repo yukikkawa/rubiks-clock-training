@@ -47,6 +47,30 @@
             border-radius: 14px;
             margin: 15px 0;
         }
+        /* 上級モード用のレイアウト */
+        .advanced-clock-layout {
+            display: none;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            background: #f1f3f5;
+            padding: 12px 6px;
+            border-radius: 14px;
+            margin: 15px 0;
+        }
+        .clock-pair {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+        .plus-sign {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0288d1;
+            margin-bottom: 5px;
+        }
         .arrow-box {
             width: 50px;
             height: 40px;
@@ -59,12 +83,22 @@
             height: 100%;
             fill: #0288d1;
         }
+        .arrow-v-svg {
+            width: 30px;
+            height: 30px;
+            fill: #0288d1;
+            transform: rotate(90deg);
+        }
         .clock-svg {
             background: #e1f5fe;
             border-radius: 50%;
             border: 3px solid #0288d1;
             flex: 0 0 110px;
             height: 110px;
+        }
+        .clock-svg-small {
+            flex: 0 0 85px;
+            height: 85px;
         }
         
         /* 難易度選択ボタン */
@@ -375,8 +409,8 @@
     </div>
 
     <div id="start-screen" class="screen active">
-        <h2>Clock 差分判定</h2>
-        <p>現在位置の時計から目標の時計へ<br>針を合わせる最短手数を答えてください。</p>
+        <h2>Clock 7-Simul Trainer</h2>
+        <p>クロックの針を合わせる<br>ダイヤル回転数を答えてください。</p>
         <p id="start-best" class="start-best" style="display: none; color: #868e96; margin-top: 12px;">ベストタイム: <span id="start-best-time">--</span> 秒</p>
 
         <div id="start-stats" style="display: none; margin-top: 15px; font-size: 15px; color: #868e96;">
@@ -390,7 +424,7 @@
             <button class="btn-difficulty" data-level="advanced" onclick="selectDifficulty('advanced')">上級</button>
         </div>
         <div id="start-difficulty-desc" style="font-size: 12px; color: #868e96; margin-top: -10px; margin-bottom: 15px; min-height: 1.5em;"></div>
-        <button class="btn-start" onclick="startQuiz()">トレーニング開始</button>
+        <button class="btn-start" onclick="startQuiz()">START</button>
         <button class="btn-reset" onclick="confirmReset()">記録をリセットする</button>
     </div>
 
@@ -401,36 +435,42 @@
             <div class="live-timer"><span id="live-time">0.00</span> 秒</div>
         </div>
         
-        <div class="clock-container">
-            <svg id="clock-left" class="clock-svg" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/>
-                <circle cx="50" cy="12" r="3" fill="#f03e3e"/>
-                <circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/>
-                <circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/>
-                <circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/>
-                <circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/>
-                <circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/>
-                <circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
+        <div id="standard-clock-area" class="clock-container">
+            <svg class="clock-svg" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
                 <line id="hand-left" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
             </svg>
-
-            <div class="arrow-box">
-                <svg class="arrow-svg" viewBox="0 0 24 24">
-                    <path id="arrow-path" d="M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z"/>
-                </svg>
-            </div>
-
-            <svg id="clock-right" class="clock-svg" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/>
-                <circle cx="50" cy="12" r="3" fill="#f03e3e"/>
-                <circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/>
-                <circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/>
-                <circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/>
-                <circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/>
-                <circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/>
-                <circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
+            <div class="arrow-box"><svg class="arrow-svg" viewBox="0 0 24 24"><path id="arrow-path" d="M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z"/></svg></div>
+            <svg class="clock-svg" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
                 <line id="hand-right" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
             </svg>
+        </div>
+
+        <div id="advanced-clock-area" class="advanced-clock-layout">
+            <div class="clock-pair">
+                <svg class="clock-svg clock-svg-small" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
+                    <line id="hand-a" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
+                </svg>
+                <svg class="arrow-v-svg" viewBox="0 0 24 24"><path id="arrow-v1-path" d="M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z"/></svg>
+                <svg class="clock-svg clock-svg-small" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
+                    <line id="hand-b" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
+                </svg>
+            </div>
+            <div class="plus-sign">+</div>
+            <div class="clock-pair">
+                <svg class="clock-svg clock-svg-small" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
+                    <line id="hand-c" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
+                </svg>
+                <svg class="arrow-v-svg" viewBox="0 0 24 24"><path id="arrow-v2-path" d="M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z"/></svg>
+                <svg class="clock-svg clock-svg-small" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
+                    <line id="hand-d" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
+                </svg>
+            </div>
         </div>
 
         <div class="btn-grid" id="button-container"></div>
@@ -480,7 +520,7 @@
     const difficultyDescs = {
         'beginner': '矢印の向きが左から右に固定されます。',
         'intermediate': '矢印の向きがランダムに変わります。',
-        'advanced': '中級と同じルールです。実力を試しましょう！'
+        'advanced': '[A→B] + [C→D] の合計を計算します。上下の差分を足しましょう！'
     };
 
     let playedDifficulty = 'beginner'; 
@@ -805,6 +845,59 @@
         }
         document.getElementById('current-question').innerText = currentStep;
 
+        const standardArea = document.getElementById('standard-clock-area');
+        const advancedArea = document.getElementById('advanced-clock-area');
+
+        if (playedDifficulty === 'advanced') {
+            standardArea.style.display = 'none';
+            advancedArea.style.display = 'flex';
+
+            const a = Math.floor(Math.random() * 12);
+            const b = Math.floor(Math.random() * 12);
+            const c = Math.floor(Math.random() * 12);
+            const d = Math.floor(Math.random() * 12);
+            const isT1toB1 = Math.random() < 0.5;
+            const isT2toB2 = Math.random() < 0.5;
+            const v1Path = document.getElementById('arrow-v1-path');
+            const v2Path = document.getElementById('arrow-v2-path');
+
+            let diff1, diff2;
+            if (isT1toB1) {
+                v1Path.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z'); // 下向き (右向きを90度回転)
+                v1Path.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z'); // 上向き (左向きを90度回転)
+                diff1 = b - a;
+            } else {
+                v1Path.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z'); // 上向き (左向きを90度回転)
+                v1Path.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z'); // 下向き (右向きを90度回転)
+                diff1 = a - b;
+            }
+
+            if (isT2toB2) {
+                v2Path.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z'); // 下向き
+                v2Path.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z'); // 上向き
+                diff2 = d - c;
+            } else {
+                v2Path.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z'); // 上向き
+                v2Path.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z'); // 下向き
+                diff2 = c - d;
+            }
+
+            let totalDiff = diff1 + diff2;
+
+            // 時計の最短手数（-5〜6）に正規化
+            while (totalDiff <= -5) totalDiff += 12;
+            while (totalDiff > 6) totalDiff -= 12;
+            correctAnswer = totalDiff;
+
+            document.getElementById('hand-a').setAttribute('transform', `rotate(${a * 30} 50 50)`);
+            document.getElementById('hand-b').setAttribute('transform', `rotate(${b * 30} 50 50)`);
+            document.getElementById('hand-c').setAttribute('transform', `rotate(${c * 30} 50 50)`);
+            document.getElementById('hand-d').setAttribute('transform', `rotate(${d * 30} 50 50)`);
+
+        } else {
+            standardArea.style.display = 'flex';
+            advancedArea.style.display = 'none';
+
         leftTime = Math.floor(Math.random() * 12);
         rightTime = Math.floor(Math.random() * 12);
 
@@ -812,10 +905,12 @@
 
         let fromTime, toTime;
         if (isLeftToRight) {
+            arrowPath.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z');
             arrowPath.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z');
             fromTime = leftTime;
             toTime = rightTime;
         } else {
+            arrowPath.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z');
             arrowPath.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z');
             fromTime = rightTime;
             toTime = leftTime;
@@ -828,6 +923,7 @@
 
         document.getElementById('hand-left').setAttribute('transform', `rotate(${leftTime * 30} 50 50)`);
         document.getElementById('hand-right').setAttribute('transform', `rotate(${rightTime * 30} 50 50)`);
+        }
     }
 
     function checkAnswer(selected) {
