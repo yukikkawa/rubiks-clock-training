@@ -116,8 +116,16 @@
             font-size: 14px;
             font-weight: bold;
         }
-        .btn-difficulty.active {
-            background-color: #495057;
+        .btn-difficulty[data-level="beginner"].active {
+            background-color: #74c0fc;
+            color: white;
+        }
+        .btn-difficulty[data-level="intermediate"].active {
+            background-color: #ffd43b;
+            color: #862e00;
+        }
+        .btn-difficulty[data-level="advanced"].active {
+            background-color: #ff8787;
             color: white;
         }
 
@@ -195,6 +203,12 @@
             color: #d6336c;
             margin: 15px 0 2px 0;
         }
+        .stats-block {
+            padding: 12px;
+            border-radius: 12px;
+            margin-top: 10px;
+            transition: background-color 0.2s;
+        }
         .result-formula {
             font-size: 14px;
             color: #868e96;
@@ -202,8 +216,7 @@
         }
         .result-best {
             font-size: 15px;
-            color: #868e96;
-            margin-bottom: 4px;
+            color: #495057;
         }
         .result-best span {
             font-weight: bold;
@@ -233,15 +246,10 @@
             100% { transform: scale(1); opacity: 1; }
         }
         .start-best {
-            font-size: 14px;
-            color: #868e96;
-            margin-top: 12px;
-        }
-        .start-best span {
+            font-size: 15px;
             font-weight: bold;
             color: #495057;
         }
-        .start-best { font-size: 15px; }
         /* エフェクト用オーバーレイ共通 */
         .effect-overlay {
             position: absolute;
@@ -411,11 +419,13 @@
     <div id="start-screen" class="screen active">
         <h2>Clock 7-Simul Trainer</h2>
         <p>クロックの針を合わせる<br>ダイヤル回転数を答えてください。</p>
-        <p id="start-best" class="start-best" style="display: none; color: #868e96; margin-top: 12px;">ベストタイム: <span id="start-best-time">--</span> 秒</p>
 
-        <div id="start-stats" style="display: none; margin-top: 15px; font-size: 15px; color: #868e96;">
-            <div>直近5回の平均: <span id="start-avg" style="font-weight: bold; color: #228be6;">--</span> 秒</div>
-            <div style="margin-top: 12px; font-size: 12px; color: #adb5bd;">直近5回の記録: <span id="start-recent" style="color: #adb5bd; font-weight: bold;"></span></div>
+        <div id="start-stats-container" class="stats-block" style="display: none;">
+            <div id="start-best" class="start-best" style="display: none; padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); margin-bottom: 10px;">ベストタイム: <span id="start-best-time">--</span> 秒</div>
+            <div id="start-stats" style="display: none; font-size: 15px; color: #868e96;">
+                <div>直近5回の平均: <span id="start-avg" style="font-weight: bold; color: #228be6;">--</span> 秒</div>
+                <div style="margin-top: 10px; font-size: 12px; color: #adb5bd;">直近5回の記録: <span id="start-recent" style="color: #adb5bd; font-weight: bold;"></span></div>
+            </div>
         </div>
         
         <div class="difficulty-container">
@@ -485,10 +495,13 @@
         </div>
         <div id="result-difficulty" style="font-size: 14px; color: #868e96; margin-bottom: 5px;">難易度: <span id="result-diff-label">--</span></div>
         <div id="result-comparison" style="font-size: 15px; margin-bottom: 15px; min-height: 1.5em; color: #495057; font-weight: bold;"></div>
-        <div class="result-best">ベストタイム: <span id="best-time">--</span> 秒</div>
-        <div id="result-stats" style="margin-bottom: 20px; font-size: 15px; color: #868e96;">
-            <div>直近5回の平均: <span id="result-avg" style="font-weight: bold; color: #228be6;">--</span> 秒</div>
-            <div style="margin-top: 12px; font-size: 12px; color: #adb5bd;">直近6回の記録: <span id="result-recent" style="color: #adb5bd; font-weight: bold;"></span></div>
+
+        <div id="result-stats-container" class="stats-block" style="margin-bottom: 20px;">
+            <div id="result-best" class="result-best" style="padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); margin-bottom: 10px;">ベストタイム: <span id="best-time">--</span> 秒</div>
+            <div id="result-stats" style="font-size: 15px; color: #868e96;">
+                <div>直近5回の平均: <span id="result-avg" style="font-weight: bold; color: #228be6;">--</span> 秒</div>
+                <div style="margin-top: 10px; font-size: 12px; color: #adb5bd;">直近6回の記録: <span id="result-recent" style="color: #adb5bd; font-weight: bold;"></span></div>
+            </div>
         </div>
 
         <div class="difficulty-container">
@@ -565,6 +578,18 @@
         if (startDescEl) startDescEl.innerText = desc;
         if (resultDescEl) resultDescEl.innerText = desc;
 
+        // 記録エリアの背景色を更新
+        const statsBgColors = {
+            'beginner': '#e7f5ff',     // 薄い青
+            'intermediate': '#fff9db', // 薄い黄
+            'advanced': '#fff5f5'      // 薄い赤
+        };
+        const bg = statsBgColors[level];
+        ['start-stats-container', 'result-stats-container'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.backgroundColor = bg;
+        });
+
         // 開始画面の表示を更新
         updateBestTimeDisplay();
         updateStatsDisplay();
@@ -615,12 +640,16 @@
         const startBest = getBestTime(selectedDifficulty);
         
         const startBestEl = document.getElementById('start-best');
+        const startContainer = document.getElementById('start-stats-container');
         if (startBest === null) {
             startBestEl.style.display = 'none';
         } else {
             document.getElementById('start-best-time').innerText = startBest.toFixed(2);
             startBestEl.style.display = 'block';
         }
+
+        // ベスト記録か履歴のどちらかがあればコンテナを表示
+        if (startContainer) startContainer.style.display = (startBest !== null || getHistory(selectedDifficulty).length > 0) ? 'block' : 'none';
 
         // リザルト画面のベストタイムは、実際にプレイした難易度のものを保持する
         const resultBest = getBestTime(playedDifficulty);
@@ -667,12 +696,17 @@
     function updateScreenStats(prefix, diff, listCount, avgCount) {
         const history = getHistory(diff);
         const container = document.getElementById(`${prefix}-stats`);
-        if (!container) return;
+        const wrapper = document.getElementById(`${prefix}-stats-container`);
+        if (!container || !wrapper) return;
+
+        const hasBest = getBestTime(diff) !== null;
         
         if (history.length === 0) {
             container.style.display = 'none';
             return;
         }
+
+        wrapper.style.display = 'block';
         
         const listItems = history.slice(-listCount).reverse();
         const avgItems = history.slice(-avgCount);
@@ -681,6 +715,10 @@
             ? (avgItems.reduce((a, b) => a + b, 0) / avgItems.length).toFixed(2)
             : "--";
         const listStr = listItems.length > 0 ? listItems.map(n => n.toFixed(2)).join(', ') : 'なし';
+
+        // ベスト記録が表示されている場合のみ区切り線を調整
+        const bestEl = document.getElementById(`${prefix}-best`);
+        if (bestEl) bestEl.style.borderBottom = (history.length > 0 && bestEl.style.display !== 'none') ? '1px solid rgba(0,0,0,0.05)' : 'none';
 
         container.style.display = 'block';
         document.getElementById(`${prefix}-avg`).innerText = avg;
@@ -731,6 +769,24 @@
         isPaused = false;
         isTransitioning = true; // カウントダウン中の操作防止
 
+        // カウントダウン開始前に、選択された難易度に応じたレイアウトを表示
+        const standardArea = document.getElementById('standard-clock-area');
+        const advancedArea = document.getElementById('advanced-clock-area');
+        if (playedDifficulty === 'advanced') {
+            standardArea.style.display = 'none';
+            advancedArea.style.display = 'flex';
+        } else {
+            standardArea.style.display = 'flex';
+            advancedArea.style.display = 'none';
+        }
+
+        // カウントダウン中は針と矢印を隠す
+        const elementsToHide = ['hand-left', 'hand-right', 'hand-a', 'hand-b', 'hand-c', 'hand-d', 'arrow-path', 'arrow-v1-path', 'arrow-v2-path'];
+        elementsToHide.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.visibility = 'hidden';
+        });
+
         // クイズ画面へ切り替え（カウントダウンを見せるため）
         showScreen('quiz-screen');
         document.getElementById('live-time').innerText = "0.00";
@@ -740,6 +796,14 @@
             startTime = performance.now();
             isRunning = true;
             isTransitioning = false;
+
+            // プレイ開始時に針と矢印を表示
+            const elementsToShow = ['hand-left', 'hand-right', 'hand-a', 'hand-b', 'hand-c', 'hand-d', 'arrow-path', 'arrow-v1-path', 'arrow-v2-path'];
+            elementsToShow.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.visibility = 'visible';
+            });
+
             nextQuestion();
             updateTimer();
         });
@@ -863,21 +927,17 @@
 
             let diff1, diff2;
             if (isT1toB1) {
-                v1Path.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z'); // 下向き (右向きを90度回転)
                 v1Path.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z'); // 上向き (左向きを90度回転)
                 diff1 = b - a;
             } else {
-                v1Path.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z'); // 上向き (左向きを90度回転)
                 v1Path.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z'); // 下向き (右向きを90度回転)
                 diff1 = a - b;
             }
 
             if (isT2toB2) {
-                v2Path.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z'); // 下向き
                 v2Path.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z'); // 上向き
                 diff2 = d - c;
             } else {
-                v2Path.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z'); // 上向き
                 v2Path.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z'); // 下向き
                 diff2 = c - d;
             }
@@ -905,12 +965,10 @@
 
         let fromTime, toTime;
         if (isLeftToRight) {
-            arrowPath.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z');
             arrowPath.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z');
             fromTime = leftTime;
             toTime = rightTime;
         } else {
-            arrowPath.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z');
             arrowPath.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z');
             fromTime = rightTime;
             toTime = leftTime;
