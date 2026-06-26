@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ルービッククロック 計算練習</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        #app {
+            background: white;
+            padding: 20px 16px;
+            border-radius: 20px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+            position: relative;
+        }
+        .screen { display: none; }
+        .active { display: block; }
+        
+        h2 { margin-top: 10px; color: #212529; }
+        p { color: #6c757d; font-size: 14px; line-height: 1.5; }
+
+        /* 時計エリア */
+        .clock-container {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 4px;
+            background: #f1f3f5;
+            padding: 12px 6px;
+            border-radius: 14px;
+            margin: 15px 0;
+        }
+        /* 上級モード用のレイアウト */
+        .advanced-clock-layout {
+            display: none;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            background: #f1f3f5;
+            padding: 12px 6px;
+            border-radius: 14px;
+            margin: 15px 0;
+        }
+        .clock-pair {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+        .plus-sign {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0288d1;
+            margin-bottom: 5px;
+        }
+        .arrow-box {
+            width: 50px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .arrow-svg {
+            width: 100%;
+            height: 100%;
+            fill: #0288d1;
+        }
+        .arrow-v-svg {
+            width: 30px;
+            height: 30px;
+            fill: #0288d1;
+            transform: rotate(90deg);
+        }
+        .clock-svg {
+            background: #e1f5fe;
+            border-radius: 50%;
+            border: 3px solid #0288d1;
+            flex: 0 0 110px;
+            height: 110px;
+        }
+        .clock-svg-small {
+            flex: 0 0 85px;
+            height: 85px;
+        }
+        
+        /* 難易度選択ボタン */
+        .difficulty-container {
+            display: flex;
+            gap: 8px;
+            margin: 15px 0;
+        }
+        .btn-difficulty {
+            flex: 1;
+            background-color: #e9ecef;
+            color: #495057;
+            padding: 10px 0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .btn-difficulty[data-level="beginner"].active {
+            background-color: #74c0fc;
+            color: white;
+        }
+        .btn-difficulty[data-level="intermediate"].active {
+            background-color: #ffd43b;
+            color: #862e00;
+        }
+        .btn-difficulty[data-level="advanced"].active {
+            background-color: #ff8787;
+            color: white;
+        }
+
+        /* ボタンのスタイル */
+        button {
+            font-family: inherit;
+            border: none;
+            cursor: pointer;
+            transition: background 0.1s, transform 0.05s;
+        }
+        button:active {
+            transform: scale(0.96);
+        }
+        .btn-start {
+            background-color: #2b8a3e;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 14px 32px;
+            border-radius: 12px;
+            width: 100%;
+            margin-top: 15px;
+        }
+        
+        .btn-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .btn-answer {
+            color: white;
+            font-size: 20px;
+            font-weight: 700;
+            padding: 14px 0;
+            border-radius: 10px;
+        }
+        
+        .btn-minus { background-color: #c92a2a; }
+        .btn-plus { background-color: #228be6; }
+        .btn-fullwidth {
+            grid-column: span 2;
+            background-color: #12b886;
+        }
+        
+        .info-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 15px;
+            color: #495057;
+            font-weight: bold;
+            padding: 0 4px;
+        }
+        .live-timer {
+            font-variant-numeric: tabular-nums;
+            background: #e2f5e5;
+            color: #2b8a3e;
+            padding: 4px 12px;
+            border-radius: 6px;
+        }
+        .btn-pause {
+            background-color: #e9ecef;
+            color: #495057;
+            font-size: 12px;
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 6px;
+        }
+        
+        /* リザルト表示 */
+        .result-total {
+            font-size: 32px;
+            font-weight: bold;
+            color: #d6336c;
+            margin: 15px 0 2px 0;
+        }
+        .stats-block {
+            padding: 12px;
+            border-radius: 12px;
+            margin-top: 10px;
+            transition: background-color 0.2s;
+        }
+        .result-formula {
+            font-size: 14px;
+            color: #868e96;
+            margin-bottom: 20px;
+        }
+        .result-best {
+            font-size: 15px;
+            color: #495057;
+        }
+        .result-best span {
+            font-weight: bold;
+            color: #495057;
+        }
+        .new-record-badge {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: linear-gradient(135deg, #ffd43b 0%, #fab005 100%);
+            color: #862e00;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 10px 20px;
+            border-radius: 999px;
+            margin: 0 auto 12px auto;
+            width: fit-content;
+            box-shadow: 0 4px 12px rgba(250, 176, 5, 0.35);
+            animation: record-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .new-record-badge.show {
+            display: flex;
+        }
+        @keyframes record-pop {
+            0% { transform: scale(0.6); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .start-best {
+            font-size: 15px;
+            font-weight: bold;
+            color: #495057;
+        }
+        /* エフェクト用オーバーレイ共通 */
+        .effect-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.08s ease-out;
+        }
+        .effect-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* ○（正解）エフェクト */
+        .correct-circle {
+            width: 140px;
+            height: 140px;
+            border: 16px solid #2b8a3e;
+            border-radius: 50%;
+            transform: scale(0.6);
+            transition: transform 0.12s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #correct-overlay.show .correct-circle { transform: scale(1); }
+
+        /* ✕（不正解）エフェクト */
+        .incorrect-cross {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            transform: scale(0.6);
+            transition: transform 0.12s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .incorrect-cross::before, .incorrect-cross::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 16px;
+            background-color: #f03e3e;
+            border-radius: 8px;
+        }
+        .incorrect-cross::before { transform: translateY(-50%) rotate(45deg); }
+        .incorrect-cross::after { transform: translateY(-50%) rotate(-45deg); }
+        #incorrect-overlay.show .incorrect-cross { transform: scale(1); }
+
+        /* カウントダウン演出 */
+        #countdown-overlay {
+            background: rgba(255, 255, 255, 0.4); /* 3,2,1の間は白濁 */
+        }
+        #countdown-overlay.is-start {
+            background: none; /* START!の瞬間は背景なし */
+            pointer-events: none; /* START!の瞬間は操作を透過 */
+        }
+        #countdown-display {
+            font-size: 100px;
+            font-weight: 900;
+            color: #2b8a3e;
+            text-shadow: none; /* 3,2,1の間は影なし */
+            transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 20;
+        }
+        #countdown-overlay.is-start #countdown-display {
+            /* START!の瞬間だけ視認性のための光彩を付ける */
+            text-shadow: 0 0 15px rgba(255,255,255,0.9), 0 0 30px rgba(255,255,255,0.9);
+        }
+
+        /* カスタム確認モーダル */
+        #confirm-modal {
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 20px;
+            width: 85%;
+            max-width: 320px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        .modal-content p {
+            color: #212529;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 0 0 24px 0;
+            line-height: 1.5;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+        }
+        .btn-modal {
+            flex: 1;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: bold;
+        }
+        .btn-confirm { background-color: #f03e3e; color: white; }
+        .btn-cancel { background-color: #e9ecef; color: #495057; }
+
+        #pause-overlay {
+            background: #f8f9fa; /* 時計を完全に隠すために不透明な背景 */
+            z-index: 25;
+            flex-direction: column;
+        }
+
+        .btn-reset {
+            background: none;
+            border: none;
+            color: #fa5252;
+            text-decoration: underline;
+            font-size: 13px;
+            margin-top: 15px;
+            cursor: pointer;
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div id="correct-overlay" class="effect-overlay">
+        <div class="correct-circle"></div>
+    </div>
+
+    <div id="confirm-modal" class="effect-overlay">
+        <div class="modal-content">
+            <p id="confirm-message">メッセージ</p>
+            <div class="modal-buttons">
+                <button class="btn-modal btn-cancel" onclick="closeConfirmModal()">キャンセル</button>
+                <button class="btn-modal btn-confirm" onclick="executeConfirmAction()">はい</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="incorrect-overlay" class="effect-overlay">
+        <div class="incorrect-cross"></div>
+    </div>
+
+    <div id="countdown-overlay" class="effect-overlay">
+        <div id="countdown-display"></div>
+    </div>
+
+    <div id="pause-overlay" class="effect-overlay">
+        <div style="text-align: center;">
+            <h2 style="margin-bottom: 10px;">一時停止中</h2>
+            <div style="margin-bottom: 20px; color: #495057; font-size: 15px; line-height: 1.6;">
+                <div>現在の進捗: <span id="pause-current-step" style="font-weight: bold; color: #228be6;">--</span> / 10 問目</div>
+                <div>これまでのミス: <span id="pause-miss-count" style="font-weight: bold; color: #f03e3e;">--</span> 回</div>
+            </div>
+            <button class="btn-start" style="width: auto;" onclick="togglePause()">再開する</button>
+            <button class="btn-reset" style="display: block; margin: 20px auto 0 auto;" onclick="backToTitle()">タイトルに戻る</button>
+        </div>
+    </div>
+
+    <div id="start-screen" class="screen active">
+        <h2>Clock Calc Trainer</h2>
+        <p>クロックの針を合わせる<br>ダイヤル回転数を答えてください。</p>
+
+        <div id="start-stats-container" class="stats-block" style="display: none;">
+            <div id="start-best" class="start-best" style="display: none; padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); margin-bottom: 10px;">ベストタイム: <span id="start-best-time">--</span> 秒</div>
+            <div id="start-stats" style="display: none; font-size: 15px; color: #868e96;">
+                <div>直近5回の平均: <span id="start-avg" style="font-weight: bold; color: #228be6;">--</span> 秒</div>
+                <div style="margin-top: 10px; font-size: 12px; color: #adb5bd;">直近5回の記録: <span id="start-recent" style="color: #adb5bd; font-weight: bold;"></span></div>
+            </div>
+        </div>
+        
+        <div class="difficulty-container">
+            <button class="btn-difficulty active" data-level="beginner" onclick="selectDifficulty('beginner')">初級</button>
+            <button class="btn-difficulty" data-level="intermediate" onclick="selectDifficulty('intermediate')">中級</button>
+            <button class="btn-difficulty" data-level="advanced" onclick="selectDifficulty('advanced')">上級</button>
+        </div>
+        <div id="start-difficulty-desc" style="font-size: 12px; color: #868e96; margin-top: -10px; margin-bottom: 15px; min-height: 1.5em;"></div>
+        <button class="btn-start" onclick="startQuiz()">START</button>
+        <button class="btn-reset" onclick="confirmReset()">記録をリセットする</button>
+    </div>
+
+    <div id="quiz-screen" class="screen">
+        <div class="info-container">
+            <div>問 <span id="current-question">1</span> / 10</div>
+            <button class="btn-pause" onclick="togglePause()">一時停止</button>
+            <div class="live-timer"><span id="live-time">0.00</span> 秒</div>
+        </div>
+        
+        <div id="standard-clock-area" class="clock-container">
+            <svg class="clock-svg" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
+                <line id="hand-left" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
+            </svg>
+            <div class="arrow-box"><svg class="arrow-svg" viewBox="0 0 24 24"><path id="arrow-path" d="M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z"/></svg></div>
+            <svg class="clock-svg" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
+                <line id="hand-right" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
+            </svg>
+        </div>
+
+        <div id="advanced-clock-area" class="advanced-clock-layout">
+            <div class="clock-pair">
+                <svg class="clock-svg clock-svg-small" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
+                    <line id="hand-a" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
+                </svg>
+                <svg class="arrow-v-svg" viewBox="0 0 24 24"><path id="arrow-v1-path" d="M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z"/></svg>
+                <svg class="clock-svg clock-svg-small" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
+                    <line id="hand-b" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
+                </svg>
+            </div>
+            <div class="plus-sign">+</div>
+            <div class="clock-pair">
+                <svg class="clock-svg clock-svg-small" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
+                    <line id="hand-c" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
+                </svg>
+                <svg class="arrow-v-svg" viewBox="0 0 24 24"><path id="arrow-v2-path" d="M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z"/></svg>
+                <svg class="clock-svg clock-svg-small" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
+                    <line id="hand-d" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
+                </svg>
+            </div>
+        </div>
+
+        <div class="btn-grid" id="button-container"></div>
+    </div>
+
+    <div id="result-screen" class="screen">
+        <h2>リザルト</h2>
+        <div id="new-record-badge" class="new-record-badge">🎉 新記録！</div>
+        <div class="result-total"><span id="total-time">0.00</span>秒</div>
+        <div class="result-formula">
+            = <span id="base-time">0.00</span>秒 +（ミス<span id="total-miss">0</span>回×2秒）
+        </div>
+        <div id="result-difficulty" style="font-size: 14px; color: #868e96; margin-bottom: 5px;">難易度: <span id="result-diff-label">--</span></div>
+        <div id="result-comparison" style="font-size: 15px; margin-bottom: 15px; min-height: 1.5em; color: #495057; font-weight: bold;"></div>
+
+        <div id="result-stats-container" class="stats-block" style="margin-bottom: 20px;">
+            <div id="result-best" class="result-best" style="padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); margin-bottom: 10px;">ベストタイム: <span id="best-time">--</span> 秒</div>
+            <div id="result-stats" style="font-size: 15px; color: #868e96;">
+                <div>直近5回の平均: <span id="result-avg" style="font-weight: bold; color: #228be6;">--</span> 秒</div>
+                <div style="margin-top: 10px; font-size: 12px; color: #adb5bd;">直近6回の記録: <span id="result-recent" style="color: #adb5bd; font-weight: bold;"></span></div>
+            </div>
+        </div>
+
+        <div class="difficulty-container">
+            <button class="btn-difficulty active" data-level="beginner" onclick="selectDifficulty('beginner')">初級</button>
+            <button class="btn-difficulty" data-level="intermediate" onclick="selectDifficulty('intermediate')">中級</button>
+            <button class="btn-difficulty" data-level="advanced" onclick="selectDifficulty('advanced')">上級</button>
+        </div>
+        <div id="result-difficulty-desc" style="font-size: 12px; color: #868e96; margin-top: -10px; margin-bottom: 15px; min-height: 1.5em;"></div>
+        <div id="difficulty-bests-list" style="margin-top: 10px; font-size: 13px; color: #adb5bd; display: flex; justify-content: space-around; width: 100%;"></div>
+
+        <button class="btn-start" onclick="startQuiz()">もう一度挑戦</button>
+        <button class="btn-reset" onclick="confirmReset()">記録をリセットする</button>
+    </div>
+</div>
+
+<script>
+    let currentStep = 0;
+    let startTime = 0;
+    let totalPenaltyTime = 0; 
+    let effectStartTime = 0;  
+    let pauseStartTime = 0;
+    let leftTime = 0;
+    let rightTime = 0;
+    let correctAnswer = 0;
+    let isRunning = false;
+    let isPaused = false;
+    let isTransitioning = false;
+    let pendingConfirmAction = null;
+    const difficultyDescs = {
+        'beginner': '矢印の向きが左から右に固定されます。',
+        'intermediate': '矢印の向きがランダムに変わります。',
+        'advanced': '[A→B] + [C→D] の合計を計算します。上下の差分を足しましょう！'
+    };
+
+    let playedDifficulty = 'beginner'; 
+    let selectedDifficulty = 'beginner'; // beginner, intermediate, advanced
+    let missCount = 0; // ミス回数の記録用
+
+    const BEST_TIME_BASE_KEY = 'clock-training-best-time';
+    const HISTORY_BASE_KEY = 'clock-training-history';
+    const MISS_PENALTY_SEC = 2;
+
+    const btnContainer = document.getElementById('button-container');
+    const arrowPath = document.getElementById('arrow-path');
+    const correctOverlay = document.getElementById('correct-overlay');
+    const incorrectOverlay = document.getElementById('incorrect-overlay');
+
+    function getDifficultyLabel(diff = selectedDifficulty) {
+        const labels = { 'beginner': '初級', 'intermediate': '中級', 'advanced': '上級' };
+        return labels[diff] || '';
+    }
+
+    function getBestTimeKey(diff) {
+        const d = diff || selectedDifficulty;
+        return `${BEST_TIME_BASE_KEY}-${d}`;
+    }
+
+    function getHistoryKey(diff) {
+        const d = diff || selectedDifficulty;
+        return `${HISTORY_BASE_KEY}-${d}`;
+    }
+
+    function selectDifficulty(level) {
+        selectedDifficulty = level;
+        // UIの選択状態を更新
+        document.querySelectorAll('.btn-difficulty').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-level') === level);
+        });
+
+        // 説明文の更新
+        const desc = difficultyDescs[level];
+        const startDescEl = document.getElementById('start-difficulty-desc');
+        const resultDescEl = document.getElementById('result-difficulty-desc');
+        if (startDescEl) startDescEl.innerText = desc;
+        if (resultDescEl) resultDescEl.innerText = desc;
+
+        // 記録エリアの背景色を更新
+        const statsBgColors = {
+            'beginner': '#e7f5ff',     // 薄い青
+            'intermediate': '#fff9db', // 薄い黄
+            'advanced': '#fff5f5'      // 薄い赤
+        };
+        const bg = statsBgColors[level];
+        ['start-stats-container', 'result-stats-container'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.backgroundColor = bg;
+        });
+
+        // 開始画面の表示を更新
+        updateBestTimeDisplay();
+        updateStatsDisplay();
+    }
+
+    const buttonLayout = [
+        [0, true],
+        [-1, false], [1, false],
+        [-2, false], [2, false],
+        [-3, false], [3, false],
+        [-4, false], [4, false],
+        [-5, false], [5, false],
+        [6, true]
+    ];
+
+    buttonLayout.forEach(([num, isFull]) => {
+        const btn = document.createElement('button');
+        btn.className = 'btn-answer';
+        
+        if (isFull) {
+            btn.classList.add('btn-fullwidth');
+            btn.innerText = num;
+        } else {
+            if (num < 0) {
+                btn.classList.add('btn-minus');
+                btn.innerText = num;
+            } else {
+                btn.classList.add('btn-plus');
+                btn.innerText = `+${num}`;
+            }
+        }
+        
+        btn.onclick = () => checkAnswer(num);
+        btnContainer.appendChild(btn);
+    });
+
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+    }
+
+    function saveBestTime(time) {
+        localStorage.setItem(getBestTimeKey(), time.toFixed(2));
+    }
+
+    function updateBestTimeDisplay() {
+        // 開始画面の更新 (選択中の難易度を表示)
+        const startBest = getBestTime(selectedDifficulty);
+        
+        const startBestEl = document.getElementById('start-best');
+        const startContainer = document.getElementById('start-stats-container');
+        if (startBest === null) {
+            startBestEl.style.display = 'none';
+        } else {
+            document.getElementById('start-best-time').innerText = startBest.toFixed(2);
+            startBestEl.style.display = 'block';
+        }
+
+        // ベスト記録か履歴のどちらかがあればコンテナを表示
+        if (startContainer) startContainer.style.display = (startBest !== null || getHistory(selectedDifficulty).length > 0) ? 'block' : 'none';
+
+        // リザルト画面のベストタイムは、実際にプレイした難易度のものを保持する
+        const resultBest = getBestTime(playedDifficulty);
+        if (resultBest === null) {
+            document.getElementById('best-time').innerText = "--";
+        } else {
+            document.getElementById('best-time').innerText = resultBest.toFixed(2);
+        }
+    }
+
+    function updateStartScreenDisplay() {
+        updateBestTimeDisplay();
+        updateStatsDisplay();
+    }
+
+    function updateDifficultyBestsList() {
+        const levels = ['beginner', 'intermediate', 'advanced'];
+        const container = document.getElementById('difficulty-bests-list');
+        if (!container) return;
+        container.innerHTML = levels.map(l => {
+            const best = getBestTime(l);
+            const label = getDifficultyLabel(l);
+            return `<div>${label}: ${best ? best.toFixed(2) : '--'}s</div>`;
+        }).join('');
+    }
+
+    function getBestTime(diff) {
+        const stored = localStorage.getItem(getBestTimeKey(diff));
+        return stored !== null ? parseFloat(stored) : null;
+    }
+
+    function getHistory(diff) {
+        const stored = localStorage.getItem(getHistoryKey(diff));
+        return stored ? JSON.parse(stored).map(Number) : [];
+    }
+
+    function saveToHistory(time) {
+        const history = getHistory(selectedDifficulty);
+        history.push(parseFloat(time.toFixed(2)));
+        if (history.length > 50) history.shift(); // 履歴は最大50件保持
+        localStorage.setItem(getHistoryKey(selectedDifficulty), JSON.stringify(history));
+    }
+
+    function updateScreenStats(prefix, diff, listCount, avgCount) {
+        const history = getHistory(diff);
+        const container = document.getElementById(`${prefix}-stats`);
+        const wrapper = document.getElementById(`${prefix}-stats-container`);
+        if (!container || !wrapper) return;
+
+        const hasBest = getBestTime(diff) !== null;
+        
+        if (history.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        wrapper.style.display = 'block';
+        
+        const listItems = history.slice(-listCount).reverse();
+        const avgItems = history.slice(-avgCount);
+        
+        const avg = avgItems.length > 0 
+            ? (avgItems.reduce((a, b) => a + b, 0) / avgItems.length).toFixed(2)
+            : "--";
+        const listStr = listItems.length > 0 ? listItems.map(n => n.toFixed(2)).join(', ') : 'なし';
+
+        // ベスト記録が表示されている場合のみ区切り線を調整
+        const bestEl = document.getElementById(`${prefix}-best`);
+        if (bestEl) bestEl.style.borderBottom = (history.length > 0 && bestEl.style.display !== 'none') ? '1px solid rgba(0,0,0,0.05)' : 'none';
+
+        container.style.display = 'block';
+        document.getElementById(`${prefix}-avg`).innerText = avg;
+        document.getElementById(`${prefix}-recent`).innerText = listStr;
+    }
+
+    function updateStatsDisplay() {
+        // 開始画面は選択中の難易度を表示
+        updateScreenStats('start', selectedDifficulty, 5, 5);
+        // リザルト画面は最後にプレイした難易度を表示（必要に応じて呼ぶ）
+        updateScreenStats('result', playedDifficulty, 6, 5);
+    }
+
+    function showConfirmModal(message, action) {
+        document.getElementById('confirm-message').innerText = message;
+        pendingConfirmAction = action;
+        document.getElementById('confirm-modal').classList.add('show');
+    }
+
+    function closeConfirmModal() {
+        document.getElementById('confirm-modal').classList.remove('show');
+        pendingConfirmAction = null;
+    }
+
+    function executeConfirmAction() {
+        if (pendingConfirmAction) pendingConfirmAction();
+        closeConfirmModal();
+    }
+
+    function confirmReset() {
+        const label = getDifficultyLabel(selectedDifficulty);
+        showConfirmModal(`${label}の記録をリセットしますか？`, () => {
+            localStorage.removeItem(getBestTimeKey());
+            localStorage.removeItem(getHistoryKey());
+            updateBestTimeDisplay();
+            updateStatsDisplay();
+            updateStartScreenDisplay();
+            updateDifficultyBestsList();
+        });
+    }
+
+    function startQuiz() {
+        // 初期化
+        playedDifficulty = selectedDifficulty;
+        currentStep = 0;
+        totalPenaltyTime = 0;
+        missCount = 0;
+        isPaused = false;
+        isTransitioning = true; // カウントダウン中の操作防止
+
+        // カウントダウン開始前に、選択された難易度に応じたレイアウトを表示
+        const standardArea = document.getElementById('standard-clock-area');
+        const advancedArea = document.getElementById('advanced-clock-area');
+        if (playedDifficulty === 'advanced') {
+            standardArea.style.display = 'none';
+            advancedArea.style.display = 'flex';
+        } else {
+            standardArea.style.display = 'flex';
+            advancedArea.style.display = 'none';
+        }
+
+        // カウントダウン中は針と矢印を隠す
+        const elementsToHide = ['hand-left', 'hand-right', 'hand-a', 'hand-b', 'hand-c', 'hand-d', 'arrow-path', 'arrow-v1-path', 'arrow-v2-path'];
+        elementsToHide.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.visibility = 'hidden';
+        });
+
+        // クイズ画面へ切り替え（カウントダウンを見せるため）
+        showScreen('quiz-screen');
+        document.getElementById('live-time').innerText = "0.00";
+        
+        // カウントダウン開始
+        runCountdown(() => {
+            startTime = performance.now();
+            isRunning = true;
+            isTransitioning = false;
+
+            // プレイ開始時に針と矢印を表示
+            const elementsToShow = ['hand-left', 'hand-right', 'hand-a', 'hand-b', 'hand-c', 'hand-d', 'arrow-path', 'arrow-v1-path', 'arrow-v2-path'];
+            elementsToShow.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.visibility = 'visible';
+            });
+
+            nextQuestion();
+            updateTimer();
+        });
+    }
+
+    function runCountdown(callback) {
+        const overlay = document.getElementById('countdown-overlay');
+        const display = document.getElementById('countdown-display');
+        let count = 3;
+
+        overlay.classList.remove('is-start');
+        overlay.classList.add('show');
+        display.innerText = count;
+
+        const timer = setInterval(() => {
+            count--;
+            if (count > 0) {
+                display.innerText = count;
+                display.style.transform = 'scale(1.2)';
+                setTimeout(() => { if(count > 0) display.style.transform = 'scale(1)'; }, 100);
+            } else if (count === 0) {
+                overlay.classList.add('is-start');
+                display.innerText = "START!";
+                display.style.transform = 'scale(1.3)';
+                
+                clearInterval(timer);
+                // STARTが表示された瞬間にゲーム開始（操作可能にする）
+                callback();
+                
+                // START!の表示時間を0.25秒(250ms)にして終了する
+                setTimeout(() => {
+                    overlay.classList.remove('show');
+                    display.style.transform = 'scale(1)';
+                }, 250);
+            }
+        }, 800); // カウントダウンの間隔は0.8秒
+    }
+
+    function togglePause() {
+        // エフェクト中やカウントダウン中はポーズ不可
+        if (isTransitioning) return;
+        if (!isRunning && !isPaused) return;
+
+        const now = performance.now();
+        const overlay = document.getElementById('pause-overlay');
+
+        if (!isPaused) {
+            // 一時停止
+            isPaused = true;
+            pauseStartTime = now;
+            isRunning = false; // タイマー更新を止める
+
+            // 進捗の表示更新
+            document.getElementById('pause-current-step').innerText = currentStep;
+            document.getElementById('pause-miss-count').innerText = missCount;
+
+            overlay.classList.add('show');
+        } else {
+            // 再開
+            const pauseDuration = performance.now() - pauseStartTime;
+            totalPenaltyTime += pauseDuration; // 止まっていた時間をペナルティとして加算（実質的に相殺）
+            isPaused = false;
+            isRunning = true;
+            overlay.classList.remove('show');
+            updateTimer(); // ループ再開
+        }
+    }
+
+    function backToTitle() {
+        showConfirmModal("計測を止めてタイトルに戻ります。よろしいですか？", () => {
+            isRunning = false;
+            isPaused = false;
+            isTransitioning = false;
+            document.getElementById('pause-overlay').classList.remove('show');
+            showScreen('start-screen');
+        });
+    }
+
+    function getBaseElapsedSec(now = performance.now()) {
+        const calcNow = isPaused ? pauseStartTime : now;
+        const baseMs = isTransitioning
+            ? effectStartTime - startTime - totalPenaltyTime
+            : calcNow - startTime - totalPenaltyTime;
+        return baseMs / 1000;
+    }
+
+    function getResultTimeSec(now = performance.now()) {
+        return getBaseElapsedSec(now) + missCount * MISS_PENALTY_SEC;
+    }
+
+    function updateTimer() {
+        if (!isRunning) return;
+
+        document.getElementById('live-time').innerText = getResultTimeSec().toFixed(2);
+        requestAnimationFrame(updateTimer);
+    }
+
+    function nextQuestion() {
+        currentStep++;
+        if (currentStep > 10) {
+            endQuiz();
+            return;
+        }
+        document.getElementById('current-question').innerText = currentStep;
+
+        const standardArea = document.getElementById('standard-clock-area');
+        const advancedArea = document.getElementById('advanced-clock-area');
+
+        if (playedDifficulty === 'advanced') {
+            standardArea.style.display = 'none';
+            advancedArea.style.display = 'flex';
+
+            const a = Math.floor(Math.random() * 12);
+            const b = Math.floor(Math.random() * 12);
+            const c = Math.floor(Math.random() * 12);
+            const d = Math.floor(Math.random() * 12);
+            const isT1toB1 = Math.random() < 0.5;
+            const isT2toB2 = Math.random() < 0.5;
+            const v1Path = document.getElementById('arrow-v1-path');
+            const v2Path = document.getElementById('arrow-v2-path');
+
+            let diff1, diff2;
+            if (isT1toB1) {
+                v1Path.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z'); // 上向き (左向きを90度回転)
+                diff1 = b - a;
+            } else {
+                v1Path.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z'); // 下向き (右向きを90度回転)
+                diff1 = a - b;
+            }
+
+            if (isT2toB2) {
+                v2Path.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z'); // 上向き
+                diff2 = d - c;
+            } else {
+                v2Path.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z'); // 下向き
+                diff2 = c - d;
+            }
+
+            let totalDiff = diff1 + diff2;
+
+            // 時計の最短手数（-5〜6）に正規化
+            while (totalDiff <= -5) totalDiff += 12;
+            while (totalDiff > 6) totalDiff -= 12;
+            correctAnswer = totalDiff;
+
+            document.getElementById('hand-a').setAttribute('transform', `rotate(${a * 30} 50 50)`);
+            document.getElementById('hand-b').setAttribute('transform', `rotate(${b * 30} 50 50)`);
+            document.getElementById('hand-c').setAttribute('transform', `rotate(${c * 30} 50 50)`);
+            document.getElementById('hand-d').setAttribute('transform', `rotate(${d * 30} 50 50)`);
+
+        } else {
+            standardArea.style.display = 'flex';
+            advancedArea.style.display = 'none';
+
+        leftTime = Math.floor(Math.random() * 12);
+        rightTime = Math.floor(Math.random() * 12);
+
+        const isLeftToRight = playedDifficulty === 'beginner' ? true : Math.random() < 0.5;
+
+        let fromTime, toTime;
+        if (isLeftToRight) {
+            arrowPath.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z');
+            fromTime = leftTime;
+            toTime = rightTime;
+        } else {
+            arrowPath.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z');
+            fromTime = rightTime;
+            toTime = leftTime;
+        }
+
+        let diff = toTime - fromTime;
+        while (diff <= -5) diff += 12;
+        while (diff > 6) diff -= 12;
+        correctAnswer = diff;
+
+        document.getElementById('hand-left').setAttribute('transform', `rotate(${leftTime * 30} 50 50)`);
+        document.getElementById('hand-right').setAttribute('transform', `rotate(${rightTime * 30} 50 50)`);
+        }
+    }
+
+    function checkAnswer(selected) {
+        if (isTransitioning || isPaused) return;
+
+        if (selected === correctAnswer) {
+            triggerCorrectEffect();
+        } else {
+            missCount++; // ミスをカウント
+            triggerIncorrectEffect();
+        }
+    }
+
+    // 正解時の演出（タイマー停止あり）
+    function triggerCorrectEffect() {
+        isTransitioning = true;
+        effectStartTime = performance.now(); 
+        correctOverlay.classList.add('show');
+
+        setTimeout(() => {
+            correctOverlay.classList.remove('show');
+            let effectEndTime = performance.now();
+            totalPenaltyTime += (effectEndTime - effectStartTime); // 演出時間を差し引く
+            isTransitioning = false;
+            nextQuestion();
+        }, 250);
+    }
+
+    // 不正解時の演出（タイマーは停止しない）
+    function triggerIncorrectEffect() {
+        isTransitioning = true; // 演出中の連続タップを防止
+        incorrectOverlay.classList.add('show');
+
+        setTimeout(() => {
+            incorrectOverlay.classList.remove('show');
+            isTransitioning = false; // 問題は進めず、入力を再開可能にする
+        }, 250);
+    }
+
+    function endQuiz() {
+        isRunning = false;
+        const baseTimeNum = getBaseElapsedSec(performance.now());
+        const resultTimeNum = baseTimeNum + missCount * MISS_PENALTY_SEC;
+
+        // 保存前に過去の履歴と比較
+        const history = getHistory(playedDifficulty);
+        const recentForComparison = history.slice(-5);
+        let comparisonHTML = "";
+        if (recentForComparison.length > 0) {
+            const avg = recentForComparison.reduce((a, b) => a + b, 0) / recentForComparison.length;
+            const diffValue = resultTimeNum - avg;
+            const sign = diffValue > 0 ? "+" : "";
+            comparisonHTML = `過去${recentForComparison.length}回の平均から ${sign}${diffValue.toFixed(2)}秒`;
+        }
+        document.getElementById('result-comparison').innerHTML = comparisonHTML;
+
+        const previousBest = getBestTime(playedDifficulty);
+        const isNewRecord = previousBest === null || resultTimeNum < previousBest;
+
+        saveToHistory(resultTimeNum);
+
+        if (isNewRecord) {
+            saveBestTime(resultTimeNum);
+        }
+
+        document.getElementById('base-time').innerText = baseTimeNum.toFixed(2);
+        document.getElementById('total-miss').innerText = missCount;
+        document.getElementById('total-time').innerText = resultTimeNum.toFixed(2);
+        document.getElementById('result-diff-label').innerText = getDifficultyLabel(playedDifficulty);
+        
+        const bestNow = getBestTime(playedDifficulty);
+        document.getElementById('best-time').innerText = bestNow !== null ? bestNow.toFixed(2) : "--";
+
+        const badge = document.getElementById('new-record-badge');
+        badge.classList.toggle('show', isNewRecord);
+
+        updateScreenStats('result', playedDifficulty, 6, 5);
+        updateDifficultyBestsList();
+        showScreen('result-screen');
+    }
+
+    selectDifficulty(selectedDifficulty);
+    updateDifficultyBestsList();
+</script>
+</body>
+</html>

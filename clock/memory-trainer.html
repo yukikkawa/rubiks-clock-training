@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>7-Simul 練習アプリ - ベース基盤</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f1f3f5;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        #app {
+            background: white;
+            padding: 20px 12px;
+            border-radius: 20px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            text-align: center;
+            width: 100%;
+            max-width: 440px;
+        }
+
+        h2 {
+            margin: 0 0 15px 0;
+            color: #212529;
+            font-size: 20px;
+        }
+
+        .clock-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
+        /* 時計盤を角丸四角から「円形」に変更 */
+        .clock-board {
+            position: relative;
+            width: 260px;
+            height: 260px;
+            border-radius: 50%;
+            border: 4px solid #495057;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 6px;
+            align-items: center;
+            justify-items: center;
+        }
+
+        #board-front {
+            background: #74c0fc;
+            border-color: #1971c2;
+        }
+
+        #board-back {
+            background: #91a7ff;
+            border-color: #3b5bdb;
+        }
+
+        .board-title {
+            font-weight: bold;
+            font-size: 14px;
+            color: #495057;
+            margin-bottom: 4px;
+        }
+
+        /* 個別の時計サイズ微調整 */
+        .sub-clock {
+            background: #e1f5fe;
+            border-radius: 50%;
+            border: 2px solid #0288d1;
+            width: 66px;
+            height: 66px;
+        }
+
+        #board-back .sub-clock {
+            background: #e8eaf6;
+            border-color: #3f51b5;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <h2>7-Simul 盤面シミュレータ</h2>
+
+        <div class="clock-wrapper">
+            <div>
+                <div class="board-title">表 (Front)</div>
+                <div id="board-front" class="clock-board"></div>
+            </div>
+
+            <div>
+                <div class="board-title">裏 (Back)</div>
+                <div id="board-back" class="clock-board"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            front: Array(9).fill(0),
+            back: Array(9).fill(0)
+        };
+
+        // すべての時計盤に1時〜11時の点（グレー）と12時の点（赤）を描画
+        function createClockSVG(id, isBack) {
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.setAttribute("class", "sub-clock");
+            svg.setAttribute("viewBox", "0 0 100 100");
+
+            const borderStroke = isBack ? "#3f51b5" : "#0288d1";
+            const dotColor = "#495057";
+
+            svg.innerHTML = `
+            <circle cx="50" cy="50" r="45" fill="none" stroke="${borderStroke}" stroke-width="2"/>
+            <circle cx="50" cy="12" r="3" fill="#f03e3e"/>
+            <circle cx="68.1" cy="16.9" r="2" fill="${dotColor}"/><circle cx="83.1" cy="31.9" r="2" fill="${dotColor}"/>
+            <circle cx="88" cy="50" r="2" fill="${dotColor}"/><circle cx="83.1" cy="68.1" r="2" fill="${dotColor}"/>
+            <circle cx="68.1" cy="83.1" r="2" fill="${dotColor}"/><circle cx="50" cy="88" r="2" fill="${dotColor}"/>
+            <circle cx="31.9" cy="83.1" r="2" fill="${dotColor}"/><circle cx="16.9" cy="68.1" r="2" fill="${dotColor}"/>
+            <circle cx="12" cy="50" r="2" fill="${dotColor}"/><circle cx="16.9" cy="31.9" r="2" fill="${dotColor}"/>
+            <circle cx="31.9" cy="16.9" r="2" fill="${dotColor}"/>
+            <line id="${id}-hand" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round"/>
+        `;
+            return svg;
+        }
+
+        function initBoards() {
+            const frontBoard = document.getElementById('board-front');
+            const backBoard = document.getElementById('board-back');
+
+            for (let i = 0; i < 9; i++) {
+                frontBoard.appendChild(createClockSVG(`f-${i}`, false));
+                backBoard.appendChild(createClockSVG(`b-${i}`, true));
+            }
+            renderHandAngles();
+        }
+
+        function renderHandAngles() {
+            for (let i = 0; i < 9; i++) {
+                document.getElementById(`f-${i}-hand`).setAttribute('transform', `rotate(${state.front[i] * 30} 50 50)`);
+                document.getElementById(`b-${i}-hand`).setAttribute('transform', `rotate(${state.back[i] * 30} 50 50)`);
+            }
+        }
+
+        initBoards();
+    </script>
+</body>
+
+</html>
