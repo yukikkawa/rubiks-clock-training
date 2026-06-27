@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>7-Simul 練習アプリ - 物理反転ロジック</title>
+    <title>7-Simul 練習アプリ - スクランブル生成</title>
     <style>
         * {
             box-sizing: border-box;
@@ -30,6 +30,22 @@
         }
         h2 { margin: 0 0 5px 0; color: #212529; font-size: 20px; }
         .description { font-size: 12px; color: #868e96; margin-bottom: 15px; }
+
+        /* スクランブル表示エリア */
+        .scramble-container {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-family: monospace;
+            font-size: 14px;
+            font-weight: bold;
+            color: #343a40;
+            line-height: 1.6;
+            text-align: left;
+            word-break: break-all;
+        }
 
         .mode-container {
             display: flex;
@@ -121,7 +137,11 @@
 
 <div id="app">
     <h2>7-Simul 盤面シミュレータ</h2>
-    <div class="description">※四隅の表裏対応ロジックを修正完了</div>
+    <div class="description">※スラッシュと末尾のピン指定を除去したクリーン表記</div>
+
+    <div id="scramble-text" class="scramble-container">
+        ここにスクランブルが表示されます
+    </div>
 
     <div class="mode-container">
         <button id="mode-y2" class="btn-mode active" onclick="setFlipMode('y2')">y2 (左右反転)</button>
@@ -140,7 +160,7 @@
         </div>
     </div>
 
-    <button class="btn-scramble" onclick="scrambleAllClocks()">ランダムに配置</button>
+    <button class="btn-scramble" onclick="generateScrambleText()">スクランブル生成</button>
 </div>
 
 <script>
@@ -198,7 +218,7 @@
     function initBoards() {
         initDataState();
         buildDOMBoards();
-        scrambleAllClocks();
+        generateScrambleText();
     }
 
     function buildDOMBoards() {
@@ -268,41 +288,45 @@
         renderAllDisplays();
     }
 
-    // 正しい四隅の連動関係：F側が+1進むと、対応するB側が-1（+11）戻る
     function rotateFrontClock(id) {
         state.clocks[id] = (state.clocks[id] + 1) % 12;
         
-        if (id === 'F20') state.clocks['B00'] = (state.clocks['B00'] + 11) % 12; // B00 = (12 - F20)
-        if (id === 'F00') state.clocks['B20'] = (state.clocks['B20'] + 11) % 12; // B20 = (12 - F00)
-        if (id === 'F22') state.clocks['B02'] = (state.clocks['B02'] + 11) % 12; // B02 = (12 - F22)
-        if (id === 'F02') state.clocks['B22'] = (state.clocks['B22'] + 11) % 12; // B22 = (12 - F02)
+        if (id === 'F20') state.clocks['B00'] = (state.clocks['B00'] + 11) % 12;
+        if (id === 'F00') state.clocks['B20'] = (state.clocks['B20'] + 11) % 12;
+        if (id === 'F22') state.clocks['B02'] = (state.clocks['B02'] + 11) % 12;
+        if (id === 'F02') state.clocks['B22'] = (state.clocks['B22'] + 11) % 12;
 
         renderAllDisplays();
     }
 
-    // 指示通りの計算式でスクランブル配置
-    function scrambleAllClocks() {
-        for (let x = 0; x < 3; x++) {
-            for (let y = 0; y < 3; y++) {
-                state.clocks[`F${x}${y}`] = Math.floor(Math.random() * 12);
-            }
-        }
+    function getRandomAmount() {
+        const val = Math.floor(Math.random() * 12) - 5; 
+        if (val >= 0) return `${val}+`;
+        return `${Math.abs(val)}-`; 
+    }
 
-        // ご提示の正しい計算式を反映
-        state.clocks['B00'] = (12 - state.clocks['F20']) % 12;
-        state.clocks['B20'] = (12 - state.clocks['F00']) % 12;
-        state.clocks['B02'] = (12 - state.clocks['F22']) % 12;
-        state.clocks['B22'] = (12 - state.clocks['F02']) % 12;
+    // 【修正】スラッシュと末尾のピン指示を取り除いたスペース区切り生成
+    function generateScrambleText() {
+        const frontOps = ['UR', 'DR', 'DL', 'UL', 'U', 'D', 'L', 'R', 'ALL'];
+        const backOps = ['U', 'D', 'L', 'R', 'ALL'];
 
-        const corners = ['B00', 'B02', 'B20', 'B22'];
-        for (let x = 0; x < 3; x++) {
-            for (let y = 0; y < 3; y++) {
-                const id = `B${x}${y}`;
-                if (!corners.includes(id)) {
-                    state.clocks[id] = Math.floor(Math.random() * 12);
-                }
-            }
-        }
+        let moves = [];
+
+        // 1. 表面操作
+        frontOps.forEach(op => {
+            moves.push(`${op}${getRandomAmount()}`);
+        });
+
+        // 2. 持ち替え
+        moves.push('y2');
+
+        // 3. 裏面操作
+        backOps.forEach(op => {
+            moves.push(`${op}${getRandomAmount()}`);
+        });
+
+        // 半角スペースのみで結合
+        document.getElementById('scramble-text').innerText = moves.join(' ');
 
         renderAllDisplays();
     }
