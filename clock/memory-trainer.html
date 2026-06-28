@@ -133,6 +133,9 @@
             border: 2px solid #0288d1;
             width: 66px;
             height: 66px;
+        }
+
+        .sub-clock.clickable {
             cursor: pointer;
         }
 
@@ -258,8 +261,12 @@
             svg.setAttribute("id", `container-${id}`);
             svg.setAttribute("viewBox", "0 0 100 100");
 
-            if (isFront) {
-                svg.onclick = () => rotateFrontClock(id);
+            // 四隅の時計のみクリック可能（xとyがどちらも0または2）
+            const cx = id[1], cy = id[2];
+            const isCorner = (cx === '0' || cx === '2') && (cy === '0' || cy === '2');
+            if (isCorner) {
+                svg.classList.add('clickable');
+                svg.onclick = () => rotateCornerClock(id);
             }
 
             const borderStroke = isFront ? "#0288d1" : "#3f51b5";
@@ -413,14 +420,19 @@
             renderAllDisplays();
         }
 
-        function rotateFrontClock(id) {
+        // 四隅の表裏連動マッピング（y2表示基準）
+        const CORNER_LINKS = {
+            'F00': 'B20', 'F20': 'B00', 'F02': 'B22', 'F22': 'B02',
+            'B00': 'F20', 'B20': 'F00', 'B02': 'F22', 'B22': 'F02',
+        };
+
+        function rotateCornerClock(id) {
             state.clocks[id] = (state.clocks[id] + 1) % 12;
-
-            if (id === 'F20') state.clocks['B00'] = (state.clocks['B00'] + 11) % 12;
-            if (id === 'F00') state.clocks['B20'] = (state.clocks['B20'] + 11) % 12;
-            if (id === 'F22') state.clocks['B02'] = (state.clocks['B02'] + 11) % 12;
-            if (id === 'F02') state.clocks['B22'] = (state.clocks['B22'] + 11) % 12;
-
+            // 裏の連動する四隅時計は逆方向に回転
+            const linked = CORNER_LINKS[id];
+            if (linked) {
+                state.clocks[linked] = (state.clocks[linked] + 11) % 12;
+            }
             renderAllDisplays();
         }
 
