@@ -426,40 +426,95 @@
             'B00': 'F20', 'B20': 'F00', 'B02': 'F22', 'B22': 'F02',
         };
         function rotateCornerClock(id) {
-            // 1. まずクリックされた時計自体を1時間進める(+1)
-            state.clocks[id] = (state.clocks[id] + 1) % 12;
+            // 四隅の「軸（ギア）」と表ピンの対応関係
+            const pinOfAxis = {
+                'F00': 'UL', 'B20': 'UL',
+                'F20': 'UR', 'B00': 'UR',
+                'F02': 'DL', 'B22': 'DL',
+                'F22': 'DR', 'B02': 'DR'
+            };
 
-            // 2. 裏の連動する四隅時計は、軸が直結しているため常に逆方向に回転する(-1 ➔ +11)
-            const linked = CORNER_LINKS[id];
-            if (linked) {
-                state.clocks[linked] = (state.clocks[linked] + 11) % 12;
+            // 各ピンがupのときに、それぞれの面で連動する時計のグループマップ
+            const F_links = {
+                'UL': ['F00', 'F10', 'F01', 'F11'],
+                'UR': ['F20', 'F10', 'F21', 'F11'],
+                'DL': ['F02', 'F12', 'F01', 'F11'],
+                'DR': ['F22', 'F12', 'F21', 'F11']
+            };
+            const B_links = {
+                'UL': ['B20', 'B10', 'B21', 'B11'],
+                'UR': ['B00', 'B10', 'B01', 'B11'],
+                'DL': ['B22', 'B12', 'B21', 'B11'],
+                'DR': ['B02', 'B12', 'B01', 'B11']
+            };
+
+            // 四隅の時計の「真裏」に位置する時計の対応表（逆回転用）
+            const oppositeCorner = {
+                'F00': 'B20', 'F20': 'B00', 'F02': 'B22', 'F22': 'B02',
+                'B20': 'F00', 'B00': 'F20', 'B22': 'F02', 'B02': 'F22'
+            };
+
+            // 今回の操作による各時計の回転量（一時保存用）
+            let deltas = {};
+            for (let x = 0; x < 3; x++) {
+                for (let y = 0; y < 3; y++) {
+                    deltas[`F${x}${y}`] = 0;
+                    deltas[`B${x}${y}`] = 0;
+                }
             }
 
-            // --- 【UL(FUL)ピンの物理連動ロジック】 ---
-            if (state.pins.UL === true) {
-                // 【UPのとき】表のF00軸の動きに、表面の周囲（F10, F01, F11）が追従する
-                let f00Delta = 0;
-                if (id === 'F00') f00Delta = 1;
-                else if (id === 'B20') f00Delta = 11;
+            // 1. 操作されたダイヤルから、対象の物理軸（ピン）を特定
+            const targetPin = pinOfAxis[id];
 
-                if (f00Delta > 0) {
-                    state.clocks['F10'] = (state.clocks['F10'] + f00Delta) % 12; // 表・中央上
-                    state.clocks['F01'] = (state.clocks['F01'] + f00Delta) % 12; // 表・左中央
-                    state.clocks['F11'] = (state.clocks['F11'] + f00Delta) % 12; // 表・中央
-                }
+            // 2. 基準面（操作面）の決定
+            // ルール: 回した時計のピンが 表でup（true）なら基準面はF面、down（false）ならB面
+            const isBaseFront = state.pins[targetPin] === true;
+
+            // 3. 基準面が動く「回転の向き（量）」を決定
+            // クリックした面を直接回すなら +1、裏から回すなら直結軸は -1（12進法で +11）
+            let baseDelta = 0;
+            if (isBaseFront) {
+                baseDelta = (id[0] === 'F') ? 1 : 11;
             } else {
-                // 【DOWNのとき】裏のB20軸の動きに、裏面の周囲（B10, B11, B21）が追従する
-                let b20Delta = 0;
-                if (id === 'F00') b20Delta = 11; // 表のF00クリック時、裏のB20軸は -1 (+11) 動く
-                else if (id === 'B20') b20Delta = 1;  // 裏のB20クリック時、裏のB20軸は +1 動く
-
-                if (b20Delta > 0) {
-                    state.clocks['B10'] = (state.clocks['B10'] + b20Delta) % 12; // 裏・中央上
-                    state.clocks['B21'] = (state.clocks['B21'] + b20Delta) % 12; // 裏・右中央
-                    state.clocks['B11'] = (state.clocks['B11'] + b20Delta) % 12; // 裏・中央
-                }
+                baseDelta = (id[0] === 'B') ? 1 : 11;
             }
-            // ----------------------------------------
+
+            // 4. 基準面のup状態のピンと接続した時計をすべて連動して回す
+            if (isBaseFront) {
+                // F面が基準面: 表でup（true）のピンの周囲をすべて回す
+                Object.keys(F_links).forEach(pin => {
+                    if (state.pins[pin] === true) {
+                        F_links[pin].forEach(clockId => {
+                            deltas[clockId] = baseDelta;
+                        });
+                    }
+                });
+            } else {
+                // B面が基準面: 裏でup（表でfalse）のピンの周囲をすべて回す
+                Object.keys(B_links).forEach(pin => {
+                    if (state.pins[pin] === false) {
+                        B_links[pin].forEach(clockId => {
+                            deltas[clockId] = baseDelta;
+                        });
+                    }
+                });
+            }
+
+            // 5. 四隅の時計が回ったならば、その裏面の対応する時計は必ず逆回転（反転）する
+            // 基準面で回った四隅の回転量を、真裏の四隅へ「逆向き」にして上書き・相殺させる
+            const cornersToCheck = isBaseFront ? ['F00', 'F20', 'F02', 'F22'] : ['B00', 'B20', 'B02', 'B22'];
+            cornersToCheck.forEach(cId => {
+                if (deltas[cId] > 0) {
+                    const oppId = oppositeCorner[cId];
+                    // 逆回転なので、12から引く（例: +1 ➔ +11、+11 ➔ +1）
+                    deltas[oppId] = (12 - deltas[cId]) % 12;
+                }
+            });
+
+            // 6. 算出した回転量を実際のデータ状態へ一斉に適用
+            for (let cKey in deltas) {
+                state.clocks[cKey] = (state.clocks[cKey] + deltas[cKey]) % 12;
+            }
 
             renderAllDisplays();
         }
