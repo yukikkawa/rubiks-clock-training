@@ -425,14 +425,42 @@
             'F00': 'B20', 'F20': 'B00', 'F02': 'B22', 'F22': 'B02',
             'B00': 'F20', 'B20': 'F00', 'B02': 'F22', 'B22': 'F02',
         };
-
         function rotateCornerClock(id) {
+            // 1. まずクリックされた時計自体を1時間進める(+1)
             state.clocks[id] = (state.clocks[id] + 1) % 12;
-            // 裏の連動する四隅時計は逆方向に回転
+
+            // 2. 裏の連動する四隅時計は、軸が直結しているため常に逆方向に回転する(-1 ➔ +11)
             const linked = CORNER_LINKS[id];
             if (linked) {
                 state.clocks[linked] = (state.clocks[linked] + 11) % 12;
             }
+
+            // --- 【UL(FUL)ピンの物理連動ロジック】 ---
+            if (state.pins.UL === true) {
+                // 【UPのとき】表のF00軸の動きに、表面の周囲（F10, F01, F11）が追従する
+                let f00Delta = 0;
+                if (id === 'F00') f00Delta = 1;
+                else if (id === 'B20') f00Delta = 11;
+
+                if (f00Delta > 0) {
+                    state.clocks['F10'] = (state.clocks['F10'] + f00Delta) % 12; // 表・中央上
+                    state.clocks['F01'] = (state.clocks['F01'] + f00Delta) % 12; // 表・左中央
+                    state.clocks['F11'] = (state.clocks['F11'] + f00Delta) % 12; // 表・中央
+                }
+            } else {
+                // 【DOWNのとき】裏のB20軸の動きに、裏面の周囲（B10, B11, B21）が追従する
+                let b20Delta = 0;
+                if (id === 'F00') b20Delta = 11; // 表のF00クリック時、裏のB20軸は -1 (+11) 動く
+                else if (id === 'B20') b20Delta = 1;  // 裏のB20クリック時、裏のB20軸は +1 動く
+
+                if (b20Delta > 0) {
+                    state.clocks['B10'] = (state.clocks['B10'] + b20Delta) % 12; // 裏・中央上
+                    state.clocks['B21'] = (state.clocks['B21'] + b20Delta) % 12; // 裏・右中央
+                    state.clocks['B11'] = (state.clocks['B11'] + b20Delta) % 12; // 裏・中央
+                }
+            }
+            // ----------------------------------------
+
             renderAllDisplays();
         }
 
