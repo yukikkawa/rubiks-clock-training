@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -9,6 +10,7 @@
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
         }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: #f1f3f5;
@@ -19,17 +21,28 @@
             align-items: center;
             min-height: 100vh;
         }
+
         #app {
             background: white;
             padding: 20px 16px;
             border-radius: 20px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
             text-align: center;
             width: 100%;
             max-width: 440px;
         }
-        h2 { margin: 0 0 5px 0; color: #212529; font-size: 20px; }
-        .description { font-size: 12px; color: #868e96; margin-bottom: 15px; }
+
+        h2 {
+            margin: 0 0 5px 0;
+            color: #212529;
+            font-size: 20px;
+        }
+
+        .description {
+            font-size: 12px;
+            color: #868e96;
+            margin-bottom: 15px;
+        }
 
         /* スクランブル表示エリア */
         .scramble-container {
@@ -53,6 +66,7 @@
             gap: 10px;
             margin-bottom: 15px;
         }
+
         .btn-mode {
             flex: 1;
             max-width: 120px;
@@ -66,6 +80,7 @@
             cursor: pointer;
             transition: all 0.1s;
         }
+
         .btn-mode.active {
             background-color: #e2e6ea;
             border-color: #495057;
@@ -94,8 +109,16 @@
             align-items: center;
             justify-items: center;
         }
-        #board-front { background: #74c0fc; border-color: #1971c2; }
-        #board-back { background: #91a7ff; border-color: #3b5bdb; }
+
+        #board-front {
+            background: #74c0fc;
+            border-color: #1971c2;
+        }
+
+        #board-back {
+            background: #91a7ff;
+            border-color: #3b5bdb;
+        }
 
         .board-title {
             font-weight: bold;
@@ -112,9 +135,33 @@
             height: 66px;
             cursor: pointer;
         }
+
         #board-back .sub-clock {
             background: #e8eaf6;
             border-color: #3f51b5;
+        }
+
+        /* ピンボタン */
+        .pin-btn {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 10;
+            transform: translate(-50%, -50%);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .pin-btn.up {
+            background: #ffa94d;
+            outline: 2px solid #f08c00;
+        }
+
+        .pin-btn.down {
+            background: #868e96;
+            outline: 2px solid #495057;
         }
 
         .btn-scramble {
@@ -130,208 +177,287 @@
             max-width: 260px;
             box-shadow: 0 4px 12px rgba(34, 139, 230, 0.25);
         }
-        .btn-scramble:active { background-color: #1c7ed6; }
+
+        .btn-scramble:active {
+            background-color: #1c7ed6;
+        }
     </style>
 </head>
+
 <body>
 
-<div id="app">
-    <h2>7-Simul 盤面シミュレータ</h2>
-    <div class="description">※スラッシュと末尾のピン指定を除去したクリーン表記</div>
+    <div id="app">
+        <h2>7-Simul 盤面シミュレータ</h2>
+        <div class="description">※スラッシュと末尾のピン指定を除去したクリーン表記</div>
 
-    <div id="scramble-text" class="scramble-container">
-        ここにスクランブルが表示されます
-    </div>
-
-    <div class="mode-container">
-        <button id="mode-y2" class="btn-mode active" onclick="setFlipMode('y2')">y2 (左右反転)</button>
-        <button id="mode-x2" class="btn-mode" onclick="setFlipMode('x2')">x2 (上下反転)</button>
-    </div>
-    
-    <div class="clock-wrapper">
-        <div>
-            <div class="board-title">表 (Front)</div>
-            <div id="board-front" class="clock-board"></div>
+        <div id="scramble-text" class="scramble-container">
+            ここにスクランブルが表示されます
         </div>
 
-        <div>
-            <div class="board-title">裏 (Back)</div>
-            <div id="board-back" class="clock-board"></div>
+        <div class="mode-container">
+            <button id="mode-y2" class="btn-mode active" onclick="setFlipMode('y2')">y2 (左右反転)</button>
+            <button id="mode-x2" class="btn-mode" onclick="setFlipMode('x2')">x2 (上下反転)</button>
         </div>
+
+        <div class="clock-wrapper">
+            <div>
+                <div class="board-title">表 (Front)</div>
+                <div id="board-front" class="clock-board"></div>
+            </div>
+
+            <div>
+                <div class="board-title">裏 (Back)</div>
+                <div id="board-back" class="clock-board"></div>
+            </div>
+        </div>
+
+        <button class="btn-scramble" onclick="generateScrambleText()">スクランブル生成</button>
     </div>
 
-    <button class="btn-scramble" onclick="generateScrambleText()">スクランブル生成</button>
-</div>
+    <script>
+        const state = {
+            clocks: {},
+            flipMode: 'y2',
+            pins: { UL: false, UR: false, DL: false, DR: false }
+        };
 
-<script>
-    const state = {
-        clocks: {}, 
-        flipMode: 'y2'
-    };
-
-    function initDataState() {
-        for (let x = 0; x < 3; x++) {
-            for (let y = 0; y < 3; y++) {
-                state.clocks[`F${x}${y}`] = 0;
-                state.clocks[`B${x}${y}`] = 0;
+        function initDataState() {
+            for (let x = 0; x < 3; x++) {
+                for (let y = 0; y < 3; y++) {
+                    state.clocks[`F${x}${y}`] = 0;
+                    state.clocks[`B${x}${y}`] = 0;
+                }
             }
         }
-    }
 
-    function createClockSVG(id, isFront) {
-        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        svg.setAttribute("class", "sub-clock");
-        svg.setAttribute("id", `container-${id}`);
-        svg.setAttribute("viewBox", "0 0 100 100");
-        
-        if (isFront) {
-            svg.onclick = () => rotateFrontClock(id);
-        }
+        // ピンの表示位置定義（各ピンは連動する4つの時計の中央）
+        const FRONT_PINS = [
+            { name: 'UL', left: '36%', top: '36%' },
+            { name: 'UR', left: '64%', top: '36%' },
+            { name: 'DL', left: '36%', top: '64%' },
+            { name: 'DR', left: '64%', top: '64%' },
+        ];
+        // y2モード（左右反転）: 表のULは裏のUR位置に、URはUL位置に現れる
+        const BACK_PINS_Y2 = [
+            { name: 'UR', left: '36%', top: '36%' },
+            { name: 'UL', left: '64%', top: '36%' },
+            { name: 'DR', left: '36%', top: '64%' },
+            { name: 'DL', left: '64%', top: '64%' },
+        ];
+        // x2モード（上下反転）: 表のULは裏のDL位置に現れる（左右は変わらない）
+        const BACK_PINS_X2 = [
+            { name: 'DL', left: '36%', top: '36%' },
+            { name: 'DR', left: '64%', top: '36%' },
+            { name: 'UL', left: '36%', top: '64%' },
+            { name: 'UR', left: '64%', top: '64%' },
+        ];
 
-        const borderStroke = isFront ? "#0288d1" : "#3f51b5";
+        function createClockSVG(id, isFront) {
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.setAttribute("class", "sub-clock");
+            svg.setAttribute("id", `container-${id}`);
+            svg.setAttribute("viewBox", "0 0 100 100");
 
-        svg.innerHTML = `
+            if (isFront) {
+                svg.onclick = () => rotateFrontClock(id);
+            }
+
+            const borderStroke = isFront ? "#0288d1" : "#3f51b5";
+
+            svg.innerHTML = `
             <circle cx="50" cy="50" r="45" fill="none" stroke="${borderStroke}" stroke-width="2"/>
             <circle id="dot-${id}" cx="50" cy="12" r="3" fill="#f03e3e"/>
             <g id="ticks-${id}"></g>
             <line id="hand-${id}" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round"/>
         `;
-        return svg;
-    }
-
-    function renderTicks(id, isFlipped) {
-        const g = document.getElementById(`ticks-${id}`);
-        if (!g) return;
-        g.innerHTML = '';
-        const dotColor = "#495057";
-        const baseAngles = [30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
-        
-        baseAngles.forEach(angle => {
-            const finalAngle = isFlipped ? (angle + 180) % 360 : angle;
-            const rad = (finalAngle - 90) * Math.PI / 180;
-            const cx = 50 + 38 * Math.cos(rad);
-            const cy = 50 + 38 * Math.sin(rad);
-            g.innerHTML += `<circle cx="${cx}" cy="${cy}" r="2" fill="${dotColor}"/>`;
-        });
-    }
-
-    function initBoards() {
-        initDataState();
-        buildDOMBoards();
-        generateScrambleText();
-    }
-
-    function buildDOMBoards() {
-        const frontBoard = document.getElementById('board-front');
-        const backBoard = document.getElementById('board-back');
-        frontBoard.innerHTML = '';
-        backBoard.innerHTML = '';
-
-        for (let y = 0; y < 3; y++) {
-            for (let x = 0; x < 3; x++) {
-                frontBoard.appendChild(createClockSVG(`F${x}${y}`, true));
-            }
+            return svg;
         }
 
-        for (let y = 0; y < 3; y++) {
-            for (let x = 0; x < 3; x++) {
-                let targetX = x;
-                let targetY = y;
-                if (state.flipMode === 'x2') {
-                    targetX = 2 - x;
-                    targetY = 2 - y;
-                }
-                backBoard.appendChild(createClockSVG(`B${targetX}${targetY}`, false));
-            }
-        }
-    }
+        function renderTicks(id, isFlipped) {
+            const g = document.getElementById(`ticks-${id}`);
+            if (!g) return;
+            g.innerHTML = '';
+            const dotColor = "#495057";
+            const baseAngles = [30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
 
-    function updateClockDisplay(id, hour, isBackAndX2) {
-        const hand = document.getElementById(`hand-${id}`);
-        const dot = document.getElementById(`dot-${id}`);
-        if (!hand || !dot) return;
-
-        let displayHour = hour;
-        if (isBackAndX2) {
-            displayHour = (hour + 6) % 12;
-            dot.setAttribute('cy', '88'); 
-        } else {
-            dot.setAttribute('cy', '12'); 
+            baseAngles.forEach(angle => {
+                const finalAngle = isFlipped ? (angle + 180) % 360 : angle;
+                const rad = (finalAngle - 90) * Math.PI / 180;
+                const cx = 50 + 38 * Math.cos(rad);
+                const cy = 50 + 38 * Math.sin(rad);
+                g.innerHTML += `<circle cx="${cx}" cy="${cy}" r="2" fill="${dotColor}"/>`;
+            });
         }
 
-        const angleRad = ((displayHour * 30) - 90) * Math.PI / 180;
-        const radius = 35;
-        hand.setAttribute('x2', 50 + radius * Math.cos(angleRad));
-        hand.setAttribute('y2', 50 + radius * Math.sin(angleRad));
+        function initBoards() {
+            initDataState();
+            buildDOMBoards();
+            generateScrambleText();
+        }
 
-        renderTicks(id, isBackAndX2);
-    }
+        function buildDOMBoards() {
+            const frontBoard = document.getElementById('board-front');
+            const backBoard = document.getElementById('board-back');
+            frontBoard.innerHTML = '';
+            backBoard.innerHTML = '';
 
-    function renderAllDisplays() {
-        const isX2 = state.flipMode === 'x2';
-        for (let x = 0; x < 3; x++) {
             for (let y = 0; y < 3; y++) {
-                updateClockDisplay(`F${x}${y}`, state.clocks[`F${x}${y}`], false);
-                updateClockDisplay(`B${x}${y}`, state.clocks[`B${x}${y}`], isX2);
+                for (let x = 0; x < 3; x++) {
+                    frontBoard.appendChild(createClockSVG(`F${x}${y}`, true));
+                }
             }
+            // 表のピンを追加（4隅の連動グループ中央）
+            FRONT_PINS.forEach(({ name, left, top }) => {
+                const pin = document.createElement('div');
+                const isUp = state.pins[name];
+                pin.className = `pin-btn ${isUp ? 'up' : 'down'}`;
+                pin.id = `pin-front-${name}`;
+                pin.style.left = left;
+                pin.style.top = top;
+                pin.onclick = () => togglePin(name);
+                pin.title = `${name} ピン: ${isUp ? 'UP ↑' : 'DOWN ↓'}`;
+                frontBoard.appendChild(pin);
+            });
+
+            const backPinLayout = state.flipMode === 'x2' ? BACK_PINS_X2 : BACK_PINS_Y2;
+            for (let y = 0; y < 3; y++) {
+                for (let x = 0; x < 3; x++) {
+                    let targetX = x;
+                    let targetY = y;
+                    if (state.flipMode === 'x2') {
+                        targetX = 2 - x;
+                        targetY = 2 - y;
+                    }
+                    backBoard.appendChild(createClockSVG(`B${targetX}${targetY}`, false));
+                }
+            }
+            // 裏のピンを追加（表と逆の状態: 表でUP = 裏でDOWN）
+            backPinLayout.forEach(({ name, left, top }) => {
+                const pin = document.createElement('div');
+                const isUpOnBack = !state.pins[name];
+                pin.className = `pin-btn ${isUpOnBack ? 'up' : 'down'}`;
+                pin.id = `pin-back-${name}`;
+                pin.style.left = left;
+                pin.style.top = top;
+                pin.onclick = () => togglePin(name);
+                pin.title = `${name} ピン (裏): ${isUpOnBack ? 'UP ↑' : 'DOWN ↓'}`;
+                backBoard.appendChild(pin);
+            });
         }
-    }
 
-    function setFlipMode(mode) {
-        if (state.flipMode === mode) return;
-        state.flipMode = mode;
-        
-        document.getElementById('mode-y2').classList.toggle('active', mode === 'y2');
-        document.getElementById('mode-x2').classList.toggle('active', mode === 'x2');
-        
-        buildDOMBoards(); 
-        renderAllDisplays();
-    }
+        function updateClockDisplay(id, hour, isBackAndX2) {
+            const hand = document.getElementById(`hand-${id}`);
+            const dot = document.getElementById(`dot-${id}`);
+            if (!hand || !dot) return;
 
-    function rotateFrontClock(id) {
-        state.clocks[id] = (state.clocks[id] + 1) % 12;
-        
-        if (id === 'F20') state.clocks['B00'] = (state.clocks['B00'] + 11) % 12;
-        if (id === 'F00') state.clocks['B20'] = (state.clocks['B20'] + 11) % 12;
-        if (id === 'F22') state.clocks['B02'] = (state.clocks['B02'] + 11) % 12;
-        if (id === 'F02') state.clocks['B22'] = (state.clocks['B22'] + 11) % 12;
+            let displayHour = hour;
+            if (isBackAndX2) {
+                displayHour = (hour + 6) % 12;
+                dot.setAttribute('cy', '88');
+            } else {
+                dot.setAttribute('cy', '12');
+            }
 
-        renderAllDisplays();
-    }
+            const angleRad = ((displayHour * 30) - 90) * Math.PI / 180;
+            const radius = 35;
+            hand.setAttribute('x2', 50 + radius * Math.cos(angleRad));
+            hand.setAttribute('y2', 50 + radius * Math.sin(angleRad));
 
-    function getRandomAmount() {
-        const val = Math.floor(Math.random() * 12) - 5; 
-        if (val >= 0) return `${val}+`;
-        return `${Math.abs(val)}-`; 
-    }
+            renderTicks(id, isBackAndX2);
+        }
 
-    // 【修正】スラッシュと末尾のピン指示を取り除いたスペース区切り生成
-    function generateScrambleText() {
-        const frontOps = ['UR', 'DR', 'DL', 'UL', 'U', 'D', 'L', 'R', 'ALL'];
-        const backOps = ['U', 'D', 'L', 'R', 'ALL'];
+        function renderAllDisplays() {
+            const isX2 = state.flipMode === 'x2';
+            for (let x = 0; x < 3; x++) {
+                for (let y = 0; y < 3; y++) {
+                    updateClockDisplay(`F${x}${y}`, state.clocks[`F${x}${y}`], false);
+                    updateClockDisplay(`B${x}${y}`, state.clocks[`B${x}${y}`], isX2);
+                }
+            }
+            renderPins();
+        }
 
-        let moves = [];
+        function togglePin(pinName) {
+            state.pins[pinName] = !state.pins[pinName];
+            renderPins();
+        }
 
-        // 1. 表面操作
-        frontOps.forEach(op => {
-            moves.push(`${op}${getRandomAmount()}`);
-        });
+        function renderPins() {
+            // 表のピン状態を更新
+            FRONT_PINS.forEach(({ name }) => {
+                const el = document.getElementById(`pin-front-${name}`);
+                if (!el) return;
+                const isUp = state.pins[name];
+                el.className = `pin-btn ${isUp ? 'up' : 'down'}`;
+                el.title = `${name} ピン: ${isUp ? 'UP ↑' : 'DOWN ↓'}`;
+            });
+            // 裏のピン状態を更新（表と逆）
+            const backPinLayout = state.flipMode === 'x2' ? BACK_PINS_X2 : BACK_PINS_Y2;
+            backPinLayout.forEach(({ name }) => {
+                const el = document.getElementById(`pin-back-${name}`);
+                if (!el) return;
+                const isUpOnBack = !state.pins[name];
+                el.className = `pin-btn ${isUpOnBack ? 'up' : 'down'}`;
+                el.title = `${name} ピン (裏): ${isUpOnBack ? 'UP ↑' : 'DOWN ↓'}`;
+            });
+        }
 
-        // 2. 持ち替え
-        moves.push('y2');
+        function setFlipMode(mode) {
+            if (state.flipMode === mode) return;
+            state.flipMode = mode;
 
-        // 3. 裏面操作
-        backOps.forEach(op => {
-            moves.push(`${op}${getRandomAmount()}`);
-        });
+            document.getElementById('mode-y2').classList.toggle('active', mode === 'y2');
+            document.getElementById('mode-x2').classList.toggle('active', mode === 'x2');
 
-        // 半角スペースのみで結合
-        document.getElementById('scramble-text').innerText = moves.join(' ');
+            buildDOMBoards();
+            renderAllDisplays();
+        }
 
-        renderAllDisplays();
-    }
+        function rotateFrontClock(id) {
+            state.clocks[id] = (state.clocks[id] + 1) % 12;
 
-    initBoards();
-</script>
+            if (id === 'F20') state.clocks['B00'] = (state.clocks['B00'] + 11) % 12;
+            if (id === 'F00') state.clocks['B20'] = (state.clocks['B20'] + 11) % 12;
+            if (id === 'F22') state.clocks['B02'] = (state.clocks['B02'] + 11) % 12;
+            if (id === 'F02') state.clocks['B22'] = (state.clocks['B22'] + 11) % 12;
+
+            renderAllDisplays();
+        }
+
+        function getRandomAmount() {
+            const val = Math.floor(Math.random() * 12) - 5;
+            if (val >= 0) return `${val}+`;
+            return `${Math.abs(val)}-`;
+        }
+
+        // 【修正】スラッシュと末尾のピン指示を取り除いたスペース区切り生成
+        function generateScrambleText() {
+            const frontOps = ['UR', 'DR', 'DL', 'UL', 'U', 'D', 'L', 'R', 'ALL'];
+            const backOps = ['U', 'D', 'L', 'R', 'ALL'];
+
+            let moves = [];
+
+            // 1. 表面操作
+            frontOps.forEach(op => {
+                moves.push(`${op}${getRandomAmount()}`);
+            });
+
+            // 2. 持ち替え
+            moves.push('y2');
+
+            // 3. 裏面操作
+            backOps.forEach(op => {
+                moves.push(`${op}${getRandomAmount()}`);
+            });
+
+            // 半角スペースのみで結合
+            document.getElementById('scramble-text').innerText = moves.join(' ');
+
+            renderAllDisplays();
+        }
+
+        initBoards();
+    </script>
 </body>
+
 </html>
