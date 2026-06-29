@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>7-Simul 練習アプリ - スクランブル生成</title>
+    <title>7-Simul 練習アプリ - スクランブル実装(5-8手目)</title>
     <style>
         * {
             box-sizing: border-box;
@@ -50,14 +50,61 @@
             border: 2px solid #dee2e6;
             border-radius: 10px;
             padding: 12px;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
             font-family: monospace;
             font-size: 14px;
-            font-weight: bold;
-            color: #343a40;
-            line-height: 1.6;
+            line-height: 1.8;
             text-align: left;
             word-break: break-all;
+        }
+
+        /* 各回転記号の進捗スタイル定義 */
+        .move-item {
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .move-item.pending {
+            color: #adb5bd;
+            font-weight: normal;
+        }
+
+        .move-item.done {
+            color: #343a40;
+            font-weight: normal;
+        }
+
+        .move-item.current {
+            color: #000000;
+            font-weight: bold;
+            text-decoration: underline;
+        }
+
+        /* コントロールボタンのコンテナ */
+        .scramble-controls {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .btn-ctrl {
+            flex: 1;
+            max-width: 65px;
+            padding: 8px 0;
+            font-size: 15px;
+            font-weight: bold;
+            border: 2px solid #ced4da;
+            background-color: #fff;
+            color: #495057;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .btn-ctrl:active {
+            background-color: #e2e6ea;
+            border-color: #868e96;
         }
 
         .mode-container {
@@ -191,16 +238,18 @@
 
     <div id="app">
         <h2>7-Simul 盤面シミュレータ</h2>
-        <div class="description">※スラッシュと末尾のピン指定を除去したクリーン表記</div>
-
         <div id="scramble-text" class="scramble-container">
             ここにスクランブルが表示されます
         </div>
 
-        <div class="mode-container">
-            <button id="mode-y2" class="btn-mode active" onclick="setFlipMode('y2')">y2 (左右反転)</button>
-            <button id="mode-x2" class="btn-mode" onclick="setFlipMode('x2')">x2 (上下反転)</button>
+        <div class="scramble-controls">
+            <button class="btn-ctrl" onclick="moveFirst()">|◀</button>
+            <button class="btn-ctrl" onclick="movePrev()">◀</button>
+            <button class="btn-ctrl" onclick="moveNext()">▶</button>
+            <button class="btn-ctrl" onclick="moveLast()">▶|</button>
         </div>
+
+        <button class="btn-scramble" onclick="generateScrambleText()">スクランブル生成</button>
 
         <div class="clock-wrapper">
             <div>
@@ -214,14 +263,19 @@
             </div>
         </div>
 
-        <button class="btn-scramble" onclick="generateScrambleText()">スクランブル生成</button>
+        <div class="mode-container">
+            <button id="mode-y2" class="btn-mode active" onclick="setFlipMode('y2')">y2<br> (左右反転)</button>
+            <button id="mode-x2" class="btn-mode" onclick="setFlipMode('x2')">x2<br> (上下反転)</button>
+        </div>
     </div>
 
     <script>
         const state = {
             clocks: {},
             flipMode: 'y2',
-            pins: { UL: false, UR: false, DL: false, DR: false }
+            pins: { UL: false, UR: false, DL: false, DR: false },
+            scrambleMoves: [],
+            currentMoveIndex: -1
         };
 
         function initDataState() {
@@ -233,21 +287,18 @@
             }
         }
 
-        // ピンの表示位置定義（各ピンは連動する4つの時計の中央）
         const FRONT_PINS = [
             { name: 'UL', left: '36%', top: '36%' },
             { name: 'UR', left: '64%', top: '36%' },
             { name: 'DL', left: '36%', top: '64%' },
             { name: 'DR', left: '64%', top: '64%' },
         ];
-        // y2モード（左右反転）: 表のULは裏のUR位置に、URはUL位置に現れる
         const BACK_PINS_Y2 = [
             { name: 'UR', left: '36%', top: '36%' },
             { name: 'UL', left: '64%', top: '36%' },
             { name: 'DR', left: '36%', top: '64%' },
             { name: 'DL', left: '64%', top: '64%' },
         ];
-        // x2モード（上下反転）: 表のULは裏のDL位置に現れる（左右は変わらない）
         const BACK_PINS_X2 = [
             { name: 'DL', left: '36%', top: '36%' },
             { name: 'DR', left: '64%', top: '36%' },
@@ -261,12 +312,11 @@
             svg.setAttribute("id", `container-${id}`);
             svg.setAttribute("viewBox", "0 0 100 100");
 
-            // 四隅の時計のみクリック可能（xとyがどちらも0または2）
             const cx = id[1], cy = id[2];
             const isCorner = (cx === '0' || cx === '2') && (cy === '0' || cy === '2');
             if (isCorner) {
                 svg.classList.add('clickable');
-                svg.onclick = () => rotateCornerClock(id);
+                svg.onclick = () => handleManualRotate(id);
             }
 
             const borderStroke = isFront ? "#0288d1" : "#3f51b5";
@@ -313,7 +363,6 @@
                     frontBoard.appendChild(createClockSVG(`F${x}${y}`, true));
                 }
             }
-            // 表のピンを追加（4隅の連動グループ中央）
             FRONT_PINS.forEach(({ name, left, top }) => {
                 const pin = document.createElement('div');
                 const isUp = state.pins[name];
@@ -322,7 +371,6 @@
                 pin.style.left = left;
                 pin.style.top = top;
                 pin.onclick = () => togglePin(name);
-                pin.title = `${name} ピン: ${isUp ? 'UP ↑' : 'DOWN ↓'}`;
                 frontBoard.appendChild(pin);
             });
 
@@ -338,7 +386,6 @@
                     backBoard.appendChild(createClockSVG(`B${targetX}${targetY}`, false));
                 }
             }
-            // 裏のピンを追加（表と逆の状態: 表でUP = 裏でDOWN）
             backPinLayout.forEach(({ name, left, top }) => {
                 const pin = document.createElement('div');
                 const isUpOnBack = !state.pins[name];
@@ -347,7 +394,6 @@
                 pin.style.left = left;
                 pin.style.top = top;
                 pin.onclick = () => togglePin(name);
-                pin.title = `${name} ピン (裏): ${isUpOnBack ? 'UP ↑' : 'DOWN ↓'}`;
                 backBoard.appendChild(pin);
             });
         }
@@ -390,43 +436,32 @@
         }
 
         function renderPins() {
-            // 表のピン状態を更新
             FRONT_PINS.forEach(({ name }) => {
-                const el = document.getElementById(`pin-front-${name}`);
+                const el = document.getElementById('pin-front-' + name);
                 if (!el) return;
                 const isUp = state.pins[name];
                 el.className = `pin-btn ${isUp ? 'up' : 'down'}`;
-                el.title = `${name} ピン: ${isUp ? 'UP ↑' : 'DOWN ↓'}`;
             });
-            // 裏のピン状態を更新（表と逆）
             const backPinLayout = state.flipMode === 'x2' ? BACK_PINS_X2 : BACK_PINS_Y2;
             backPinLayout.forEach(({ name }) => {
-                const el = document.getElementById(`pin-back-${name}`);
+                const el = document.getElementById('pin-back-' + name);
                 if (!el) return;
                 const isUpOnBack = !state.pins[name];
                 el.className = `pin-btn ${isUpOnBack ? 'up' : 'down'}`;
-                el.title = `${name} ピン (裏): ${isUpOnBack ? 'UP ↑' : 'DOWN ↓'}`;
             });
         }
 
         function setFlipMode(mode) {
             if (state.flipMode === mode) return;
             state.flipMode = mode;
-
-            document.getElementById('mode-y2').classList.toggle('active', mode === 'y2');
-            document.getElementById('mode-x2').classList.toggle('active', mode === 'x2');
-
             buildDOMBoards();
             renderAllDisplays();
         }
 
-        // 四隅の表裏連動マッピング（y2表示基準）
-        const CORNER_LINKS = {
-            'F00': 'B20', 'F20': 'B00', 'F02': 'B22', 'F22': 'B02',
-            'B00': 'F20', 'B20': 'F00', 'B02': 'F22', 'B22': 'F02',
-        };
-        function rotateCornerClock(id) {
-            // 四隅の「軸（ギア）」と表ピンの対応関係
+        function handleManualRotate(id) {
+            rotateEngine(id, 1);
+        }
+        function rotateEngine(id, amount) {
             const pinOfAxis = {
                 'F00': 'UL', 'B20': 'UL',
                 'F20': 'UR', 'B00': 'UR',
@@ -434,7 +469,6 @@
                 'F22': 'DR', 'B02': 'DR'
             };
 
-            // 各ピンがupのときに、それぞれの面で連動する時計のグループマップ
             const F_links = {
                 'UL': ['F00', 'F10', 'F01', 'F11'],
                 'UR': ['F20', 'F10', 'F21', 'F11'],
@@ -448,13 +482,12 @@
                 'DR': ['B02', 'B12', 'B01', 'B11']
             };
 
-            // 四隅の時計の「真裏」に位置する時計の対応表（逆回転用）
             const oppositeCorner = {
                 'F00': 'B20', 'F20': 'B00', 'F02': 'B22', 'F22': 'B02',
                 'B20': 'F00', 'B00': 'F20', 'B22': 'F02', 'B02': 'F22'
             };
 
-            // 今回の操作による各時計の回転量（一時保存用）
+            // 各時計の回転量を保持するオブジェクト（初期値はすべて0）
             let deltas = {};
             for (let x = 0; x < 3; x++) {
                 for (let y = 0; y < 3; y++) {
@@ -463,60 +496,48 @@
                 }
             }
 
-            // 1. 操作されたダイヤルから、対象の物理軸（ピン）を特定
             const targetPin = pinOfAxis[id];
-
-            // 2. 基準面（操作面）の決定
-            // ルール: 回した時計のピンが 表でup（true）なら基準面はF面、down（false）ならB面
             const isBaseFront = state.pins[targetPin] === true;
 
-            // 3. 基準面が動く「回転の向き（量）」を決定
-            // クリックした面を直接回すなら +1、裏から回すなら直結軸は -1（12進法で +11）
             let baseDelta = 0;
             if (isBaseFront) {
-                baseDelta = (id[0] === 'F') ? 1 : 11;
+                baseDelta = (id[0] === 'F') ? amount : (12 - amount) % 12;
             } else {
-                baseDelta = (id[0] === 'B') ? 1 : 11;
+                baseDelta = (id[0] === 'B') ? amount : (12 - amount) % 12;
             }
 
-            // 4. 基準面のup状態のピンと接続した時計をすべて連動して回す
+            // 【バグ修正ポイント】 += ではなく、一律 baseDelta を「代入」することで重複加算を防ぐ
             if (isBaseFront) {
-                // F面が基準面: 表でup（true）のピンの周囲をすべて回す
                 Object.keys(F_links).forEach(pin => {
                     if (state.pins[pin] === true) {
                         F_links[pin].forEach(clockId => {
-                            deltas[clockId] = baseDelta;
+                            deltas[clockId] = baseDelta; // 重複しても同じ値が上書きされるだけ
                         });
                     }
                 });
             } else {
-                // B面が基準面: 裏でup（表でfalse）のピンの周囲をすべて回す
                 Object.keys(B_links).forEach(pin => {
                     if (state.pins[pin] === false) {
                         B_links[pin].forEach(clockId => {
-                            deltas[clockId] = baseDelta;
+                            deltas[clockId] = baseDelta; // 重複しても同じ値が上書きされるだけ
                         });
                     }
                 });
             }
 
-            // 5. 四隅の時計が回ったならば、その裏面の対応する時計は必ず逆回転（反転）する
-            // 基準面で回った四隅の回転量を、真裏の四隅へ「逆向き」にして上書き・相殺させる
+            // 四隅の裏表逆回転ルールを適用
             const cornersToCheck = isBaseFront ? ['F00', 'F20', 'F02', 'F22'] : ['B00', 'B20', 'B02', 'B22'];
             cornersToCheck.forEach(cId => {
                 if (deltas[cId] > 0) {
                     const oppId = oppositeCorner[cId];
-                    // 逆回転なので、12から引く（例: +1 ➔ +11、+11 ➔ +1）
                     deltas[oppId] = (12 - deltas[cId]) % 12;
                 }
             });
 
-            // 6. 算出した回転量を実際のデータ状態へ一斉に適用
+            // 最終決定した回転量を一斉に適用
             for (let cKey in deltas) {
                 state.clocks[cKey] = (state.clocks[cKey] + deltas[cKey]) % 12;
             }
-
-            renderAllDisplays();
         }
 
         function getRandomAmount() {
@@ -525,30 +546,142 @@
             return `${Math.abs(val)}-`;
         }
 
-        // 【修正】スラッシュと末尾のピン指示を取り除いたスペース区切り生成
         function generateScrambleText() {
-            const frontOps = ['UR', 'DR', 'DL', 'UL', 'U', 'D', 'L', 'R', 'ALL'];
-            const backOps = ['U', 'D', 'L', 'R', 'ALL'];
+            const frontOps = ['UR', 'DR', 'DL', 'UL', 'U', 'R', 'D', 'L', 'ALL'];
+            const backOps = ['U', 'R', 'D', 'L', 'ALL'];
 
             let moves = [];
-
-            // 1. 表面操作
-            frontOps.forEach(op => {
-                moves.push(`${op}${getRandomAmount()}`);
-            });
-
-            // 2. 持ち替え
+            frontOps.forEach(op => { moves.push(`${op}${getRandomAmount()}`); });
             moves.push('y2');
+            backOps.forEach(op => { moves.push(`${op}${getRandomAmount()}`); });
 
-            // 3. 裏面操作
-            backOps.forEach(op => {
-                moves.push(`${op}${getRandomAmount()}`);
+            state.scrambleMoves = moves;
+            moveFirst();
+        }
+
+        function renderScrambleHTML() {
+            const container = document.getElementById('scramble-text');
+            container.innerHTML = '';
+
+            state.scrambleMoves.forEach((move, index) => {
+                const span = document.createElement('span');
+                span.className = 'move-item';
+                span.innerText = move;
+
+                if (index < state.currentMoveIndex) {
+                    span.classList.add('done');
+                } else if (index === state.currentMoveIndex) {
+                    span.classList.add('current');
+                } else {
+                    span.classList.add('pending');
+                }
+                container.appendChild(span);
+            });
+        }
+
+        // 【機能拡張】1〜8手目に対応した統合自動スクランブルパーサー
+        function applyMoveAt(index, isForward) {
+            if (index < 0 || index >= state.scrambleMoves.length) return;
+            const move = state.scrambleMoves[index];
+            if (move === 'y2') return;
+
+            const match = move.match(/^([A-Z]+)(\d+)([\+\-])/);
+            if (!match) return;
+
+            const op = match[1];           // 例: "UR", "U", "L"
+            let amount = parseInt(match[2]);
+            const sign = match[3];
+
+            // 各操作（1〜8手目）に応じたピン状態の定義と代表操作ダイヤルのマッピング
+            const opRules = {
+                'UR': { pins: { UL: false, UR: true, DL: false, DR: false }, axis: 'F20' },
+                'DR': { pins: { UL: false, UR: false, DL: false, DR: true }, axis: 'F22' },
+                'DL': { pins: { UL: false, UR: false, DL: true, DR: false }, axis: 'F02' },
+                'UL': { pins: { UL: true, UR: false, DL: false, DR: false }, axis: 'F00' },
+                'U': { pins: { UL: true, UR: true, DL: false, DR: false }, axis: 'F00' },
+                'D': { pins: { UL: false, UR: false, DL: true, DR: true }, axis: 'F02' },
+                'L': { pins: { UL: true, UR: false, DL: true, DR: false }, axis: 'F00' },
+                'R': { pins: { UL: false, UR: true, DL: false, DR: true }, axis: 'F20' },
+                'ALL': { pins: { UL: true, UR: true, DL: true, DR: true }, axis: 'F00' }
+            };
+
+            // 1〜8手目以外の記号（ALLなど）が来たら現段階ではスキップ
+            if (!opRules[op]) return;
+
+            // 1. ピンの自動同期
+            const rule = opRules[op];
+            Object.keys(state.pins).forEach(p => {
+                state.pins[p] = rule.pins[p];
             });
 
-            // 半角スペースのみで結合
-            document.getElementById('scramble-text').innerText = moves.join(' ');
+            // 2. 回転量の算出
+            if (sign === '-') {
+                amount = (12 - amount) % 12;
+            }
+            if (!isForward) {
+                amount = (12 - amount) % 12; // 戻る時は逆回転
+            }
 
+            // 3. 連動コアエンジンの駆動
+            rotateEngine(rule.axis, amount);
+        }
+
+        // 復元用：現在のインデックスを元に正しいピンの形状を復旧させる関数
+        function restorePinsForCurrentIndex() {
+            if (state.currentMoveIndex >= 0 && state.currentMoveIndex < state.scrambleMoves.length) {
+                const curMove = state.scrambleMoves[state.currentMoveIndex];
+                const match = curMove.match(/^([A-Z]+)/);
+                const opRules = {
+                    'UR': { UL: false, UR: true, DL: false, DR: false },
+                    'DR': { UL: false, UR: false, DL: false, DR: true },
+                    'DL': { UL: false, UR: false, DL: true, DR: false },
+                    'UL': { UL: true, UR: false, DL: false, DR: false },
+                    'U': { UL: true, UR: true, DL: false, DR: false },
+                    'D': { UL: false, UR: false, DL: true, DR: true },
+                    'L': { UL: true, UR: false, DL: true, DR: false },
+                    'R': { UL: false, UR: true, DL: false, DR: true },
+                    'ALL': { UL: true, UR: true, DL: true, DR: true }
+                };
+                if (match && opRules[match[1]]) {
+                    Object.keys(state.pins).forEach(p => state.pins[p] = opRules[match[1]][p]);
+                    return;
+                }
+            }
+            // 該当なし（初期状態やy2など）はALL down
+            Object.keys(state.pins).forEach(p => state.pins[p] = false);
+        }
+
+        function moveFirst() {
+            initDataState();
+            Object.keys(state.pins).forEach(p => state.pins[p] = false);
+            state.currentMoveIndex = -1;
+            renderScrambleHTML();
             renderAllDisplays();
+        }
+
+        function movePrev() {
+            if (state.currentMoveIndex >= 0) {
+                applyMoveAt(state.currentMoveIndex, false);
+                state.currentMoveIndex--;
+                restorePinsForCurrentIndex();
+                renderScrambleHTML();
+                renderAllDisplays();
+            }
+        }
+
+        function moveNext() {
+            if (state.currentMoveIndex < state.scrambleMoves.length) {
+                state.currentMoveIndex++;
+                applyMoveAt(state.currentMoveIndex, true);
+                renderScrambleHTML();
+                renderAllDisplays();
+            }
+        }
+
+        function moveLast() {
+            while (state.currentMoveIndex < state.scrambleMoves.length - 1) {
+                moveNext();
+            }
         }
 
         initBoards();
