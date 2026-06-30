@@ -214,6 +214,22 @@
             outline: 2px solid #495057;
         }
 
+        .arc-indicator {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            pointer-events: none;
+            z-index: 15;
+            transform: translate(-50%, -50%);
+        }
+
+        .arc-path {
+            fill: none;
+            stroke: #ff6b2b;
+            stroke-width: 4;
+            stroke-linecap: round;
+        }
+
         .btn-scramble {
             background-color: #228be6;
             color: white;
@@ -450,6 +466,93 @@
                 el.className = `pin-btn ${isUpOnBack ? 'up' : 'down'}`;
             });
         }
+        // 【新関数】指定されたダイヤルの外側にオレンジの円弧を描画する
+        // 【改良】実際に回転した四隅の時計すべてに円弧を同時に描画する関数
+        function drawArcIndicators(clockIds) {
+            // 前の円弧インジケーターを画面からすべて一掃
+            document.querySelectorAll('.arc-indicator').forEach(el => el.remove());
+            if (!clockIds || clockIds.length === 0) return;
+
+            clockIds.forEach(clockId => {
+                const face = clockId[0]; // 'F' or 'B'
+                const cx = clockId[1];   // '0' or '2'
+                const cy = clockId[2];   // '0' or '2'
+
+                // 3x3グリッド内の四隅の位置（%）
+                const posX = cx === '0' ? '18%' : '82%';
+                const posY = cy === '0' ? '18%' : '82%';
+
+                const board = document.getElementById(face === 'F' ? 'board-front' : 'board-back');
+                if (!board) return;
+
+                const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                svg.setAttribute("class", "arc-indicator");
+                svg.style.left = posX;
+                svg.style.top = posY;
+                svg.setAttribute("viewBox", "0 0 100 100");
+
+                // 四隅の位置（左上・右上・左下・右下）に応じて、円弧の向き（外側を囲う角度）を調整
+                let pathData = "";
+                if (cx === '0' && cy === '0') {
+                    pathData = "M 15 50 A 35 35 0 0 1 50 15"; // 左上
+                } else if (cx === '2' && cy === '0') {
+                    pathData = "M 50 15 A 35 35 0 0 1 85 50"; // 右上
+                } else if (cx === '0' && cy === '2') {
+                    pathData = "M 50 85 A 35 35 0 0 1 15 50"; // 左下
+                } else if (cx === '2' && cy === '2') {
+                    pathData = "M 85 50 A 35 35 0 0 1 50 85"; // 右下
+                }
+
+                svg.innerHTML = `<path class="arc-path" d="${pathData}" />`;
+                board.appendChild(svg);
+            });
+        }
+        // 【新アプローチ】現在の手順（インデックス）に基づいて、表示すべき円弧の場所を一意に決定する関数
+        function updateArcDisplayForCurrentIndex() {
+            const index = state.currentMoveIndex;
+
+            // 初期状態、またはスクランブル完了状態のときは円弧をすべて消去
+            if (index < 0 || index >= state.scrambleMoves.length) {
+                drawArcIndicators([]);
+                return;
+            }
+
+            const move = state.scrambleMoves[index];
+            if (move === 'y2') {
+                drawArcIndicators([]);
+                return;
+            }
+
+            const match = move.match(/^([A-Z]+)/);
+            if (!match) return;
+            const op = match[1]; // "UR", "U", "R" など
+
+            let arcs = [];
+            if (index <= 8) {
+                // 表面セグメントの円弧位置定義
+                const frontArcs = {
+                    'UR': ['F20'], 'DR': ['F22'], 'DL': ['F02'], 'UL': ['F00'],
+                    'U': ['F00', 'F20'],
+                    'R': ['F20', 'F22'],
+                    'D': ['F02', 'F22'],
+                    'L': ['F00', 'F02'],
+                    'ALL': ['F00', 'F20', 'F02', 'F22']
+                };
+                arcs = frontArcs[op] || [];
+            } else {
+                // 裏面セグメントの円弧位置定義 (y2反転表示に準拠)
+                const backArcs = {
+                    'U': ['B20', 'B00'], // 裏の上up ➔ 表示上の右上(B20)と左上(B00)
+                    'R': ['B20', 'B22'], // 裏の右up ➔ 表示上の右上(B20)と右下(B22)
+                    'D': ['B22', 'B02'], // 裏の下up ➔ 表示上の右下(B22)と左下(B02)
+                    'L': ['B00', 'B02'], // 裏の左up ➔ 表示上の左上(B00)と左下(B02)
+                    'ALL': ['B20', 'B00', 'B22', 'B02']
+                };
+                arcs = backArcs[op] || [];
+            }
+
+            drawArcIndicators(arcs);
+        }
 
         function setFlipMode(mode) {
             if (state.flipMode === mode) return;
@@ -465,7 +568,6 @@
         function handleManualRotate(id) {
             rotateEngine(id, 1);
         }
-
         function rotateEngine(id, amount) {
             const pinOfAxis = {
                 'F00': 'UL', 'B20': 'UL',
@@ -528,6 +630,7 @@
                 });
             }
 
+            // 四隅の裏表逆回転ルールを適用
             const cornersToCheck = isBaseFront ? ['F00', 'F20', 'F02', 'F22'] : ['B00', 'B20', 'B02', 'B22'];
             cornersToCheck.forEach(cId => {
                 if (deltas[cId] > 0) {
@@ -536,6 +639,7 @@
                 }
             });
 
+            // 最終決定した回転量を一斉に適用
             for (let cKey in deltas) {
                 state.clocks[cKey] = (state.clocks[cKey] + deltas[cKey]) % 12;
             }
@@ -579,12 +683,14 @@
                 container.appendChild(span);
             });
         }
-
         function applyMoveAt(index, isForward) {
             if (index < 0 || index >= state.scrambleMoves.length) return;
             const move = state.scrambleMoves[index];
 
+            // 【修正ポイント】y2 のときは円弧を確実に消去し、ピン状態をALL down（裏ALL up）にして、ここで処理を終える
             if (move === 'y2') {
+                drawArcIndicators([]);
+                Object.keys(state.pins).forEach(p => state.pins[p] = false);
                 return;
             }
 
@@ -639,6 +745,7 @@
             if (state.currentMoveIndex >= 0 && state.currentMoveIndex < state.scrambleMoves.length) {
                 const curMove = state.scrambleMoves[state.currentMoveIndex];
                 if (curMove === 'y2') {
+                    drawArcIndicators([]); // y2のときは円弧を消去
                     return;
                 }
                 const match = curMove.match(/^([A-Z]+)/);
@@ -677,13 +784,13 @@
             }
             Object.keys(state.pins).forEach(p => state.pins[p] = false);
         }
-
         function moveFirst() {
             initDataState();
             Object.keys(state.pins).forEach(p => state.pins[p] = false);
             state.currentMoveIndex = -1;
             renderScrambleHTML();
             renderAllDisplays();
+            updateArcDisplayForCurrentIndex(); // 【追加】
         }
 
         function movePrev() {
@@ -693,6 +800,7 @@
                 restorePinsForCurrentIndex();
                 renderScrambleHTML();
                 renderAllDisplays();
+                updateArcDisplayForCurrentIndex(); // 【追加】
             }
         }
 
@@ -702,6 +810,7 @@
                 applyMoveAt(state.currentMoveIndex, true);
                 renderScrambleHTML();
                 renderAllDisplays();
+                updateArcDisplayForCurrentIndex(); // 【追加】
             }
         }
 
@@ -709,6 +818,7 @@
             while (state.currentMoveIndex < state.scrambleMoves.length) {
                 moveNext();
             }
+            // ※moveLastは内部でmoveNextを最大まで回すため、自動的に最後は円弧が消去されます
         }
 
         initBoards();
