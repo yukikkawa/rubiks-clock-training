@@ -506,12 +506,11 @@
                 baseDelta = (id[0] === 'B') ? amount : (12 - amount) % 12;
             }
 
-            // 【バグ修正ポイント】 += ではなく、一律 baseDelta を「代入」することで重複加算を防ぐ
             if (isBaseFront) {
                 Object.keys(F_links).forEach(pin => {
                     if (state.pins[pin] === true) {
                         F_links[pin].forEach(clockId => {
-                            deltas[clockId] = baseDelta; // 重複しても同じ値が上書きされるだけ
+                            deltas[clockId] = baseDelta;
                         });
                     }
                 });
@@ -519,7 +518,7 @@
                 Object.keys(B_links).forEach(pin => {
                     if (state.pins[pin] === false) {
                         B_links[pin].forEach(clockId => {
-                            deltas[clockId] = baseDelta; // 重複しても同じ値が上書きされるだけ
+                            deltas[clockId] = baseDelta;
                         });
                     }
                 });
@@ -579,33 +578,47 @@
             });
         }
 
-        // 【機能拡張】1〜8手目に対応した統合自動スクランブルパーサー
         function applyMoveAt(index, isForward) {
             if (index < 0 || index >= state.scrambleMoves.length) return;
             const move = state.scrambleMoves[index];
-            if (move === 'y2') return;
+
+            if (move === 'y2') {
+                return;
+            }
 
             const match = move.match(/^([A-Z]+)(\d+)([\+\-])/);
             if (!match) return;
 
-            const op = match[1];           // 例: "UR", "U", "L"
+            const op = match[1];           // 例: "UR", "U", "ALL"
             let amount = parseInt(match[2]);
             const sign = match[3];
 
-            // 各操作（1〜8手目）に応じたピン状態の定義と代表操作ダイヤルのマッピング
-            const opRules = {
-                'UR': { pins: { UL: false, UR: true, DL: false, DR: false }, axis: 'F20' },
-                'DR': { pins: { UL: false, UR: false, DL: false, DR: true }, axis: 'F22' },
-                'DL': { pins: { UL: false, UR: false, DL: true, DR: false }, axis: 'F02' },
-                'UL': { pins: { UL: true, UR: false, DL: false, DR: false }, axis: 'F00' },
-                'U': { pins: { UL: true, UR: true, DL: false, DR: false }, axis: 'F00' },
-                'D': { pins: { UL: false, UR: false, DL: true, DR: true }, axis: 'F02' },
-                'L': { pins: { UL: true, UR: false, DL: true, DR: false }, axis: 'F00' },
-                'R': { pins: { UL: false, UR: true, DL: false, DR: true }, axis: 'F20' },
-                'ALL': { pins: { UL: true, UR: true, DL: true, DR: true }, axis: 'F00' }
-            };
+            // index が 9 (10手目のy2) より大きい場合は裏面操作手順(U, D, L, R, ALL)として処理
+            let opRules = {};
+            if (index <= 8) {
+                // 表面セグメント (1〜9手目)
+                opRules = {
+                    'UR': { pins: { UL: false, UR: true, DL: false, DR: false }, axis: 'F20' },
+                    'DR': { pins: { UL: false, UR: false, DL: false, DR: true }, axis: 'F22' },
+                    'DL': { pins: { UL: false, UR: false, DL: true, DR: false }, axis: 'F02' },
+                    'UL': { pins: { UL: true, UR: false, DL: false, DR: false }, axis: 'F00' },
+                    'U': { pins: { UL: true, UR: true, DL: false, DR: false }, axis: 'F00' },
+                    'R': { pins: { UL: false, UR: true, DL: false, DR: true }, axis: 'F20' },
+                    'D': { pins: { UL: false, UR: false, DL: true, DR: true }, axis: 'F02' },
+                    'L': { pins: { UL: true, UR: false, DL: true, DR: false }, axis: 'F00' },
+                    'ALL': { pins: { UL: true, UR: true, DL: true, DR: true }, axis: 'F00' }
+                };
+            } else {
+                // 裏面セグメント (11〜14手目) 
+                opRules = {
+                    'U': { pins: { UL: false, UR: false, DL: true, DR: true }, axis: 'B20' },
+                    'R': { pins: { UL: false, UR: true, DL: false, DR: true }, axis: 'B20' },
+                    'D': { pins: { UL: true, UR: true, DL: false, DR: false }, axis: 'B22' },
+                    'L': { pins: { UL: true, UR: false, DL: true, DR: false }, axis: 'B00' },
+                    'ALL': { pins: { UL: false, UR: false, DL: false, DR: false }, axis: 'B20' }
+                };
+            }
 
-            // 1〜8手目以外の記号（ALLなど）が来たら現段階ではスキップ
             if (!opRules[op]) return;
 
             // 1. ピンの自動同期
@@ -630,24 +643,44 @@
         function restorePinsForCurrentIndex() {
             if (state.currentMoveIndex >= 0 && state.currentMoveIndex < state.scrambleMoves.length) {
                 const curMove = state.scrambleMoves[state.currentMoveIndex];
-                const match = curMove.match(/^([A-Z]+)/);
-                const opRules = {
-                    'UR': { UL: false, UR: true, DL: false, DR: false },
-                    'DR': { UL: false, UR: false, DL: false, DR: true },
-                    'DL': { UL: false, UR: false, DL: true, DR: false },
-                    'UL': { UL: true, UR: false, DL: false, DR: false },
-                    'U': { UL: true, UR: true, DL: false, DR: false },
-                    'D': { UL: false, UR: false, DL: true, DR: true },
-                    'L': { UL: true, UR: false, DL: true, DR: false },
-                    'R': { UL: false, UR: true, DL: false, DR: true },
-                    'ALL': { UL: true, UR: true, DL: true, DR: true }
-                };
-                if (match && opRules[match[1]]) {
-                    Object.keys(state.pins).forEach(p => state.pins[p] = opRules[match[1]][p]);
+                if (curMove === 'y2') {
                     return;
                 }
+                const match = curMove.match(/^([A-Z]+)/);
+                if (match) {
+                    const op = match[1];
+                    if (state.currentMoveIndex <= 8) {
+                        const frontRules = {
+                            'UR': { UL: false, UR: true, DL: false, DR: false },
+                            'DR': { UL: false, UR: false, DL: false, DR: true },
+                            'DL': { UL: false, UR: false, DL: true, DR: false },
+                            'UL': { UL: true, UR: false, DL: false, DR: false },
+                            'U': { UL: true, UR: true, DL: false, DR: false },
+                            'D': { UL: false, UR: false, DL: true, DR: true },
+                            'L': { UL: true, UR: false, DL: true, DR: false },
+                            'R': { UL: false, UR: true, DL: false, DR: true },
+                            'ALL': { UL: true, UR: true, DL: true, DR: true }
+                        };
+                        if (frontRules[op]) {
+                            Object.keys(state.pins).forEach(p => state.pins[p] = frontRules[op][p]);
+                            return;
+                        }
+                    } else {
+                        const backRules = {
+                            'U': { UL: false, UR: false, DL: true, DR: true },
+                            'R': { UL: false, UR: true, DL: false, DR: true },
+                            'D': { UL: true, UR: true, DL: false, DR: false },
+                            'L': { UL: true, UR: false, DL: true, DR: false },
+                            'ALL': { UL: false, UR: false, DL: false, DR: false }
+                        };
+                        if (backRules[op]) {
+                            Object.keys(state.pins).forEach(p => state.pins[p] = backRules[op][p]);
+                            return;
+                        }
+                    }
+                }
             }
-            // 該当なし（初期状態やy2など）はALL down
+            // 初期状態（-1）などはALL down
             Object.keys(state.pins).forEach(p => state.pins[p] = false);
         }
 
