@@ -454,6 +454,10 @@
         function setFlipMode(mode) {
             if (state.flipMode === mode) return;
             state.flipMode = mode;
+
+            document.getElementById('mode-y2').classList.toggle('active', mode === 'y2');
+            document.getElementById('mode-x2').classList.toggle('active', mode === 'x2');
+
             buildDOMBoards();
             renderAllDisplays();
         }
@@ -461,6 +465,7 @@
         function handleManualRotate(id) {
             rotateEngine(id, 1);
         }
+
         function rotateEngine(id, amount) {
             const pinOfAxis = {
                 'F00': 'UL', 'B20': 'UL',
@@ -487,7 +492,6 @@
                 'B20': 'F00', 'B00': 'F20', 'B22': 'F02', 'B02': 'F22'
             };
 
-            // 各時計の回転量を保持するオブジェクト（初期値はすべて0）
             let deltas = {};
             for (let x = 0; x < 3; x++) {
                 for (let y = 0; y < 3; y++) {
@@ -524,7 +528,6 @@
                 });
             }
 
-            // 四隅の裏表逆回転ルールを適用
             const cornersToCheck = isBaseFront ? ['F00', 'F20', 'F02', 'F22'] : ['B00', 'B20', 'B02', 'B22'];
             cornersToCheck.forEach(cId => {
                 if (deltas[cId] > 0) {
@@ -533,7 +536,6 @@
                 }
             });
 
-            // 最終決定した回転量を一斉に適用
             for (let cKey in deltas) {
                 state.clocks[cKey] = (state.clocks[cKey] + deltas[cKey]) % 12;
             }
@@ -589,14 +591,12 @@
             const match = move.match(/^([A-Z]+)(\d+)([\+\-])/);
             if (!match) return;
 
-            const op = match[1];           // 例: "UR", "U", "ALL"
+            const op = match[1];
             let amount = parseInt(match[2]);
             const sign = match[3];
 
-            // index が 9 (10手目のy2) より大きい場合は裏面操作手順(U, D, L, R, ALL)として処理
             let opRules = {};
             if (index <= 8) {
-                // 表面セグメント (1〜9手目)
                 opRules = {
                     'UR': { pins: { UL: false, UR: true, DL: false, DR: false }, axis: 'F20' },
                     'DR': { pins: { UL: false, UR: false, DL: false, DR: true }, axis: 'F22' },
@@ -609,7 +609,6 @@
                     'ALL': { pins: { UL: true, UR: true, DL: true, DR: true }, axis: 'F00' }
                 };
             } else {
-                // 裏面セグメント (11〜14手目) 
                 opRules = {
                     'U': { pins: { UL: false, UR: false, DL: true, DR: true }, axis: 'B20' },
                     'R': { pins: { UL: false, UR: true, DL: false, DR: true }, axis: 'B20' },
@@ -621,25 +620,21 @@
 
             if (!opRules[op]) return;
 
-            // 1. ピンの自動同期
             const rule = opRules[op];
             Object.keys(state.pins).forEach(p => {
                 state.pins[p] = rule.pins[p];
             });
 
-            // 2. 回転量の算出
             if (sign === '-') {
                 amount = (12 - amount) % 12;
             }
             if (!isForward) {
-                amount = (12 - amount) % 12; // 戻る時は逆回転
+                amount = (12 - amount) % 12;
             }
 
-            // 3. 連動コアエンジンの駆動
             rotateEngine(rule.axis, amount);
         }
 
-        // 復元用：現在のインデックスを元に正しいピンの形状を復旧させる関数
         function restorePinsForCurrentIndex() {
             if (state.currentMoveIndex >= 0 && state.currentMoveIndex < state.scrambleMoves.length) {
                 const curMove = state.scrambleMoves[state.currentMoveIndex];
@@ -680,7 +675,6 @@
                     }
                 }
             }
-            // 初期状態（-1）などはALL down
             Object.keys(state.pins).forEach(p => state.pins[p] = false);
         }
 
@@ -712,7 +706,7 @@
         }
 
         function moveLast() {
-            while (state.currentMoveIndex < state.scrambleMoves.length - 1) {
+            while (state.currentMoveIndex < state.scrambleMoves.length) {
                 moveNext();
             }
         }
