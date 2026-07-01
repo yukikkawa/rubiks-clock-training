@@ -247,6 +247,17 @@
         .btn-scramble:active {
             background-color: #1c7ed6;
         }
+
+        /* 針の回転アニメーション用スタイル */
+        .sub-clock line {
+            transform-origin: 50px 50px;
+            transition: transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+
+        /* アニメーションを一時的に無効化するためのクラス */
+        .no-transition line {
+            transition: none !important;
+        }
     </style>
 </head>
 
@@ -295,10 +306,13 @@
         };
 
         function initDataState() {
+            state.visualAngles = {};
             for (let x = 0; x < 3; x++) {
                 for (let y = 0; y < 3; y++) {
                     state.clocks[`F${x}${y}`] = 0;
                     state.clocks[`B${x}${y}`] = 0;
+                    state.visualAngles[`F${x}${y}`] = 0;
+                    state.visualAngles[`B${x}${y}`] = 0;
                 }
             }
         }
@@ -414,7 +428,7 @@
             });
         }
 
-        function updateClockDisplay(id, hour, isBackAndX2) {
+        function updateClockDisplay(id, hour, isBackAndX2, instant = false, isForward = true) {
             const hand = document.getElementById(`hand-${id}`);
             const dot = document.getElementById(`dot-${id}`);
             if (!hand || !dot) return;
@@ -427,23 +441,81 @@
                 dot.setAttribute('cy', '12');
             }
 
-            const angleRad = ((displayHour * 30) - 90) * Math.PI / 180;
-            const radius = 35;
-            hand.setAttribute('x2', 50 + radius * Math.cos(angleRad));
-            hand.setAttribute('y2', 50 + radius * Math.sin(angleRad));
+            const targetAngleBase = displayHour * 30;
+            if (state.visualAngles === undefined) {
+                state.visualAngles = {};
+            }
+            if (state.visualAngles[id] === undefined) {
+                state.visualAngles[id] = targetAngleBase;
+            }
+
+            let currentAngle = state.visualAngles[id];
+            
+            if (instant) {
+                state.visualAngles[id] = targetAngleBase;
+                hand.style.transform = `rotate(${targetAngleBase}deg)`;
+            } else {
+                let diff = (targetAngleBase - currentAngle) % 360;
+                if (diff < -180) diff += 360;
+                if (diff > 180) diff -= 360;
+
+                // 180度（6時間分）の回転の時、回転方向を一意にする
+                if (Math.abs(diff) === 180) {
+                    const isFrontFace = id[0] === 'F';
+                    const isBeforeY2 = state.currentMoveIndex <= 8; // y2はインデックス9
+
+                    // 表面から見て時計回り (Front F: +180, Back B: -180)
+                    // 裏面から見て時計回り (Back B: +180, Front F: -180)
+                    let desiredDirection = 1; // +1 = clockwise, -1 = counter-clockwise
+                    
+                    if (isBeforeY2) {
+                        // 表面基準
+                        desiredDirection = isFrontFace ? 1 : -1;
+                    } else {
+                        // 裏面基準
+                        desiredDirection = isFrontFace ? -1 : 1;
+                    }
+
+                    if (!isForward) {
+                        desiredDirection = -desiredDirection;
+                    }
+
+                    diff = desiredDirection * 180;
+                }
+
+                let newAngle = currentAngle + diff;
+                state.visualAngles[id] = newAngle;
+                hand.style.transform = `rotate(${newAngle}deg)`;
+            }
 
             renderTicks(id, isBackAndX2);
         }
 
-        function renderAllDisplays() {
+        function renderAllDisplays(instant = false, isForward = true) {
             const isX2 = state.flipMode === 'x2';
+            const frontBoard = document.getElementById('board-front');
+            const backBoard = document.getElementById('board-back');
+
+            if (instant) {
+                if (frontBoard) frontBoard.classList.add('no-transition');
+                if (backBoard) backBoard.classList.add('no-transition');
+            }
+
             for (let x = 0; x < 3; x++) {
                 for (let y = 0; y < 3; y++) {
-                    updateClockDisplay(`F${x}${y}`, state.clocks[`F${x}${y}`], false);
-                    updateClockDisplay(`B${x}${y}`, state.clocks[`B${x}${y}`], isX2);
+                    updateClockDisplay(`F${x}${y}`, state.clocks[`F${x}${y}`], false, instant, isForward);
+                    updateClockDisplay(`B${x}${y}`, state.clocks[`B${x}${y}`], isX2, instant, isForward);
                 }
             }
             renderPins();
+
+            if (instant) {
+                // 強制的に再描画(Reflow)を発生させ、即時反映させた後にクラスを取り除く
+                if (frontBoard) frontBoard.offsetHeight;
+                if (backBoard) backBoard.offsetHeight;
+                if (frontBoard) frontBoard.classList.remove('no-transition');
+                if (backBoard) backBoard.classList.remove('no-transition');
+            }
         }
 
         function togglePin(pinName) {
@@ -562,11 +634,12 @@
             document.getElementById('mode-x2').classList.toggle('active', mode === 'x2');
 
             buildDOMBoards();
-            renderAllDisplays();
+            renderAllDisplays(true); // ボード切り替え時は瞬時に反映
         }
 
         function handleManualRotate(id) {
             rotateEngine(id, 1);
+            renderAllDisplays(); // 手動回転時にアニメーション表示させる
         }
         function rotateEngine(id, amount) {
             const pinOfAxis = {
@@ -661,7 +734,7 @@
             backOps.forEach(op => { moves.push(`${op}${getRandomAmount()}`); });
 
             state.scrambleMoves = moves;
-            moveFirst();
+            moveFirst(true); // 新規スクランブル生成時は瞬時にリセット
         }
 
         function renderScrambleHTML() {
@@ -784,12 +857,21 @@
             }
             Object.keys(state.pins).forEach(p => state.pins[p] = false);
         }
-        function moveFirst() {
-            initDataState();
+        function moveFirst(instant = false) {
+            if (instant) {
+                initDataState();
+            } else {
+                for (let x = 0; x < 3; x++) {
+                    for (let y = 0; y < 3; y++) {
+                        state.clocks[`F${x}${y}`] = 0;
+                        state.clocks[`B${x}${y}`] = 0;
+                    }
+                }
+            }
             Object.keys(state.pins).forEach(p => state.pins[p] = false);
             state.currentMoveIndex = -1;
             renderScrambleHTML();
-            renderAllDisplays();
+            renderAllDisplays(instant); // 指定されたフラグに従う
             updateArcDisplayForCurrentIndex(); // 【追加】
         }
 
@@ -799,7 +881,7 @@
                 state.currentMoveIndex--;
                 restorePinsForCurrentIndex();
                 renderScrambleHTML();
-                renderAllDisplays();
+                renderAllDisplays(false, false); // 逆向きの移動
                 updateArcDisplayForCurrentIndex(); // 【追加】
             }
         }
@@ -809,16 +891,20 @@
                 state.currentMoveIndex++;
                 applyMoveAt(state.currentMoveIndex, true);
                 renderScrambleHTML();
-                renderAllDisplays();
+                renderAllDisplays(false, true); // 順向きの移動
                 updateArcDisplayForCurrentIndex(); // 【追加】
             }
         }
 
-        function moveLast() {
+        function moveLast(instant = false) {
             while (state.currentMoveIndex < state.scrambleMoves.length) {
-                moveNext();
+                state.currentMoveIndex++;
+                applyMoveAt(state.currentMoveIndex, true);
             }
-            // ※moveLastは内部でmoveNextを最大まで回すため、自動的に最後は円弧が消去されます
+            restorePinsForCurrentIndex();
+            renderScrambleHTML();
+            renderAllDisplays(instant); // 指定されたフラグに従う
+            updateArcDisplayForCurrentIndex();
         }
 
         initBoards();
