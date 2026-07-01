@@ -377,6 +377,16 @@
             cursor: pointer;
             padding: 5px 10px;
         }
+
+        /* 針の回転アニメーション用スタイル */
+        .clock-svg line {
+            transform-origin: 50px 50px;
+            transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1);
+        }
+        /* アニメーションを一時的に無効化するためのクラス */
+        .no-transition line {
+            transition: none !important;
+        }
     </style>
 </head>
 <body>
@@ -539,6 +549,36 @@
     let playedDifficulty = 'beginner'; 
     let selectedDifficulty = 'beginner'; // beginner, intermediate, advanced
     let missCount = 0; // ミス回数の記録用
+
+    let handAngles = {
+        'hand-left': 0,
+        'hand-right': 0,
+        'hand-a': 0,
+        'hand-b': 0,
+        'hand-c': 0,
+        'hand-d': 0
+    };
+
+    function updateHandAngle(id, targetHour, instant = false) {
+        const hand = document.getElementById(id);
+        if (!hand) return;
+
+        const targetAngleBase = targetHour * 30;
+        let currentAngle = handAngles[id] || 0;
+
+        if (instant) {
+            handAngles[id] = targetAngleBase;
+            hand.style.transform = `rotate(${targetAngleBase}deg)`;
+        } else {
+            let diff = (targetAngleBase - currentAngle) % 360;
+            if (diff < -180) diff += 360;
+            if (diff > 180) diff -= 360;
+            
+            let newAngle = currentAngle + diff;
+            handAngles[id] = newAngle;
+            hand.style.transform = `rotate(${newAngle}deg)`;
+        }
+    }
 
     const BEST_TIME_BASE_KEY = 'clock-training-best-time';
     const HISTORY_BASE_KEY = 'clock-training-history';
@@ -804,7 +844,7 @@
                 if (el) el.style.visibility = 'visible';
             });
 
-            nextQuestion();
+            nextQuestion(true);
             updateTimer();
         });
     }
@@ -901,7 +941,7 @@
         requestAnimationFrame(updateTimer);
     }
 
-    function nextQuestion() {
+    function nextQuestion(instant = false) {
         currentStep++;
         if (currentStep > 10) {
             endQuiz();
@@ -911,6 +951,11 @@
 
         const standardArea = document.getElementById('standard-clock-area');
         const advancedArea = document.getElementById('advanced-clock-area');
+
+        if (instant) {
+            standardArea.classList.add('no-transition');
+            advancedArea.classList.add('no-transition');
+        }
 
         if (playedDifficulty === 'advanced') {
             standardArea.style.display = 'none';
@@ -949,38 +994,46 @@
             while (totalDiff > 6) totalDiff -= 12;
             correctAnswer = totalDiff;
 
-            document.getElementById('hand-a').setAttribute('transform', `rotate(${a * 30} 50 50)`);
-            document.getElementById('hand-b').setAttribute('transform', `rotate(${b * 30} 50 50)`);
-            document.getElementById('hand-c').setAttribute('transform', `rotate(${c * 30} 50 50)`);
-            document.getElementById('hand-d').setAttribute('transform', `rotate(${d * 30} 50 50)`);
+            updateHandAngle('hand-a', a, instant);
+            updateHandAngle('hand-b', b, instant);
+            updateHandAngle('hand-c', c, instant);
+            updateHandAngle('hand-d', d, instant);
 
         } else {
             standardArea.style.display = 'flex';
             advancedArea.style.display = 'none';
 
-        leftTime = Math.floor(Math.random() * 12);
-        rightTime = Math.floor(Math.random() * 12);
+            leftTime = Math.floor(Math.random() * 12);
+            rightTime = Math.floor(Math.random() * 12);
 
-        const isLeftToRight = playedDifficulty === 'beginner' ? true : Math.random() < 0.5;
+            const isLeftToRight = playedDifficulty === 'beginner' ? true : Math.random() < 0.5;
 
-        let fromTime, toTime;
-        if (isLeftToRight) {
-            arrowPath.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z');
-            fromTime = leftTime;
-            toTime = rightTime;
-        } else {
-            arrowPath.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z');
-            fromTime = rightTime;
-            toTime = leftTime;
+            let fromTime, toTime;
+            if (isLeftToRight) {
+                arrowPath.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z');
+                fromTime = leftTime;
+                toTime = rightTime;
+            } else {
+                arrowPath.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z');
+                fromTime = rightTime;
+                toTime = leftTime;
+            }
+
+            let diff = toTime - fromTime;
+            while (diff <= -5) diff += 12;
+            while (diff > 6) diff -= 12;
+            correctAnswer = diff;
+
+            updateHandAngle('hand-left', leftTime, instant);
+            updateHandAngle('hand-right', rightTime, instant);
         }
 
-        let diff = toTime - fromTime;
-        while (diff <= -5) diff += 12;
-        while (diff > 6) diff -= 12;
-        correctAnswer = diff;
-
-        document.getElementById('hand-left').setAttribute('transform', `rotate(${leftTime * 30} 50 50)`);
-        document.getElementById('hand-right').setAttribute('transform', `rotate(${rightTime * 30} 50 50)`);
+        if (instant) {
+            // 強制的に再描画(Reflow)を発生させ、即時反映させた後にクラスを取り除く
+            standardArea.offsetHeight;
+            advancedArea.offsetHeight;
+            standardArea.classList.remove('no-transition');
+            advancedArea.classList.remove('no-transition');
         }
     }
 
