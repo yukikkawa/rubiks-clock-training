@@ -283,6 +283,21 @@
             transform: translateX(40px);
         }
 
+        /* 【新要素】解法テキスト表示エリアのスタイル */
+        .solution-container {
+            background: #f8f9fa;
+            border: 1px dashed #adb5bd;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            text-align: left;
+            white-space: pre-wrap;
+            color: #495057;
+        }
+
         /* 針の回転アニメーション用スタイル */
         .sub-clock line {
             transform-origin: 50px 50px;
@@ -346,6 +361,24 @@
                     text-anchor="middle">x2</text>
             </svg>
         </div>
+
+        <div class="solution-container">
+            1.C-&gt;U:DR:DR
+            2.C-&gt;R:UL:UL
+            3.C-&gt;L:UR:UR
+            4.C-&gt;D:UL,UR:UL
+            5.C-&gt;12:UL,UR,DR:UR
+            6.y2
+            7.C-&gt;U:DR:DR
+            8.C-&gt;R:UL:UL
+            9.C-&gt;L:UR:UR
+            10.C-&gt;D:UL,UR:UL
+            11.C-&gt;DL:UL,UR,DR:UR
+            12.C-&gt;DR:UL,UR,DL:UL
+            13.C-&gt;UL:UR,DR,DL:UR
+            14.C-&gt;UR:UL,DR,DL:UL
+            15.C-&gt;12:UL,UR,DR,DL:UR</div>
+
     </div>
 
     <script>
@@ -514,7 +547,6 @@
                 if (Math.abs(diff) === 180) {
                     const isFrontFace = id[0] === 'F';
                     const isBeforeY2 = state.currentMoveIndex <= 8;
-
                     let desiredDirection = 1;
 
                     if (isBeforeY2) {
@@ -522,11 +554,9 @@
                     } else {
                         desiredDirection = isFrontFace ? -1 : 1;
                     }
-
                     if (!isForward) {
                         desiredDirection = -desiredDirection;
                     }
-
                     diff = desiredDirection * 180;
                 }
 
@@ -661,15 +691,12 @@
                 };
                 arcs = backArcs[op] || [];
             }
-
             drawArcIndicators(arcs);
         }
 
-        // 【修正】トグルスイッチ及びグラフィカルアイコンに対応したモード切り替え処理
         function setFlipMode(mode) {
             state.flipMode = mode;
 
-            // スイッチ土台のクラス切り替え（ノブの位置移動用）
             const toggleSwitch = document.getElementById('toggle-switch');
             if (mode === 'x2') {
                 toggleSwitch.classList.add('x2-active');
@@ -685,7 +712,6 @@
             renderAllDisplays(true);
         }
 
-        // 【新関数】トグルスイッチそのものをクリックした際の、反転モードの交互トグル処理
         function toggleFlipModeSwitch() {
             const nextMode = state.flipMode === 'y2' ? 'x2' : 'y2';
             setFlipMode(nextMode);
@@ -725,35 +751,25 @@
             let deltas = {};
             for (let x = 0; x < 3; x++) {
                 for (let y = 0; y < 3; y++) {
-                    deltas[`F${x}${y}`] = 0;
-                    deltas[`B${x}${y}`] = 0;
+                    deltas[`F${x}${y}`] = 0; deltas[`B${x}${y}`] = 0;
                 }
             }
 
             const targetPin = pinOfAxis[id];
             const isBaseFront = state.pins[targetPin] === true;
 
-            let baseDelta = 0;
-            if (isBaseFront) {
-                baseDelta = (id[0] === 'F') ? amount : (12 - amount) % 12;
-            } else {
-                baseDelta = (id[0] === 'B') ? amount : (12 - amount) % 12;
-            }
+            let baseDelta = isBaseFront ? ((id[0] === 'F') ? amount : (12 - amount) % 12) : ((id[0] === 'B') ? amount : (12 - amount) % 12);
 
             if (isBaseFront) {
                 Object.keys(F_links).forEach(pin => {
                     if (state.pins[pin] === true) {
-                        F_links[pin].forEach(clockId => {
-                            deltas[clockId] = baseDelta;
-                        });
+                        F_links[pin].forEach(clockId => { deltas[clockId] = baseDelta; });
                     }
                 });
             } else {
                 Object.keys(B_links).forEach(pin => {
                     if (state.pins[pin] === false) {
-                        B_links[pin].forEach(clockId => {
-                            deltas[clockId] = baseDelta;
-                        });
+                        B_links[pin].forEach(clockId => { deltas[clockId] = baseDelta; });
                     }
                 });
             }
@@ -788,10 +804,12 @@
 
             state.scrambleMoves = moves;
             moveFirst(true);
+            moveLast(false);
         }
 
         function renderScrambleHTML() {
             const container = document.getElementById('scramble-text');
+            if (!container) return;
             container.innerHTML = '';
 
             state.scrambleMoves.forEach((move, index) => {
@@ -799,13 +817,9 @@
                 span.className = 'move-item';
                 span.innerText = move;
 
-                if (index < state.currentMoveIndex) {
-                    span.classList.add('done');
-                } else if (index === state.currentMoveIndex) {
-                    span.classList.add('current');
-                } else {
-                    span.classList.add('pending');
-                }
+                if (index < state.currentMoveIndex) span.classList.add('done');
+                else if (index === state.currentMoveIndex) span.classList.add('current');
+                else span.classList.add('pending');
                 container.appendChild(span);
             });
         }
@@ -816,7 +830,7 @@
 
             if (move === 'y2') {
                 drawArcIndicators([]);
-                Object.keys(state.pins).forEach(p => state.pins[p] = false);
+                Object.keys(state.pins).forEach(p => state.pins[p] = true);
                 return;
             }
 
@@ -853,16 +867,10 @@
             if (!opRules[op]) return;
 
             const rule = opRules[op];
-            Object.keys(state.pins).forEach(p => {
-                state.pins[p] = rule.pins[p];
-            });
+            Object.keys(state.pins).forEach(p => { state.pins[p] = rule.pins[p]; });
 
-            if (sign === '-') {
-                amount = (12 - amount) % 12;
-            }
-            if (!isForward) {
-                amount = (12 - amount) % 12;
-            }
+            if (sign === '-') amount = (12 - amount) % 12;
+            if (!isForward) amount = (12 - amount) % 12;
 
             rotateEngine(rule.axis, amount);
         }
