@@ -283,6 +283,15 @@
             transform: translateX(40px);
         }
 
+        /* 【追加】解法コントロールのスタイル */
+        .solution-controls {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }
+
         /* 【新要素】解法テキスト表示エリアのスタイル */
         .solution-container {
             background: #f8f9fa;
@@ -362,7 +371,12 @@
                     text-anchor="middle">x2</text>
             </svg>
         </div>
-
+        <div class="solution-controls">
+            <button class="btn-ctrl" onclick="solveFirst()">|◀</button>
+            <button class="btn-ctrl" onclick="solvePrev()">◀</button>
+            <button class="btn-ctrl" onclick="solveNext()">▶</button>
+            <button class="btn-ctrl" onclick="solveLast()">▶|</button>
+        </div>
         <div class="solution-container">
             1.C-&gt;U:DR:DR
             2.C-&gt;R:UL:UL
@@ -379,7 +393,10 @@
             13.C-&gt;UL:UR,DR,DL:UR
             14.C-&gt;UR:UL,DR,DL:UL
             15.C-&gt;12:UL,UR,DR,DL:UR</div>
-
+        <div id="solve-debug"
+            style="background: #fff5f5; border: 1px solid #ffa8a8; border-radius: 10px; padding: 10px; margin-bottom: 20px; font-family: monospace; font-size: 12px; text-align: left; color: #c92a2a; line-height: 1.4;">
+            DEBUG: [未開始] Face: -, X(Amount): -, Y(Pins): -, Z(Dial): -
+        </div>
     </div>
 
     <script>
@@ -388,7 +405,20 @@
             flipMode: 'y2',
             pins: { UL: false, UR: false, DL: false, DR: false },
             scrambleMoves: [],
-            currentMoveIndex: -1
+            currentMoveIndex: -1,
+            // 【追加】解法の進捗インデックス（-1は開始前）
+            currentSolveIndex: -1,
+            // 【追加】各手順の実際の回転量（0〜11）を記憶する配列（全15手分）
+            solveAmounts: new Array(15).fill(0),
+            // 【追加】解法シミュレーション中の現在の基準面（初期値は 'F'）
+            currentSolveFace: 'F',
+            // 【追加】固定の解法手順リスト
+            solveMoves: [
+                "C->U:DR:DR", "C->R:UL:UL", "C->L:UR:UR", "C->D:UL,UR:UL", "C->12:UL,UR,DR:UR",
+                "y2",
+                "C->U:DR:DR", "C->R:UL:UL", "C->L:UR:UR", "C->D:UL,UR:UL", "C->DL:UL,UR,DR:UR",
+                "C->DR:UL,UR,DL:UL", "C->UL:UR,DR,DL:UR", "C->UR:UL,DR,DL:UL", "C->12:UL,UR,DR,DL:UR"
+            ]
         };
 
         function initDataState() {
@@ -804,8 +834,11 @@
             backOps.forEach(op => { moves.push(`${op}${getRandomAmount()}`); });
 
             state.scrambleMoves = moves;
+            state.currentSolveIndex = -1; // 【追加】解法インデックスのリセット
+            state.solveAmounts.fill(0); // 【追加】保存された回転量を一斉に初期化
             moveFirst(true);
             moveLast(false);
+            renderSolutionHTML(); // 【追加】
         }
 
         function renderScrambleHTML() {
@@ -968,6 +1001,229 @@
             renderScrambleHTML();
             renderAllDisplays(instant);
             updateArcDisplayForCurrentIndex();
+        }
+
+        // 【新設】解法テキストをクラス分けしてHTML描画する関数
+        function renderSolutionHTML() {
+            const container = document.querySelector('.solution-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            state.solveMoves.forEach((move, index) => {
+                const span = document.createElement('span');
+                span.style.display = 'block';
+                span.innerText = `${index + 1}.${move}`;
+
+                if (index < state.currentSolveIndex) {
+                    span.className = 'move-item done';
+                } else if (index === state.currentSolveIndex) {
+                    span.className = 'move-item current';
+                } else {
+                    span.className = 'move-item pending';
+                }
+                container.appendChild(span);
+            });
+        }
+
+        function initBoards() {
+            initDataState();
+            buildDOMBoards();
+            generateScrambleText();
+            renderSolutionHTML(); // 【追加】解法テキストの初期表示
+        }
+        // 【新設】解法の手順を解析して適用する関数
+        function applySolveMoveAt(index, isForward) {
+            if (index < 0 || index >= state.solveMoves.length) return;
+            const move = state.solveMoves[index];
+
+            if (move === 'y2') {
+                drawArcIndicators([]);
+                Object.keys(state.pins).forEach(p => state.pins[p] = false);
+                state.currentSolveFace = isForward ? 'B' : 'F';
+                return;
+            }
+
+            const parts = move.split(':');
+            if (parts.length !== 3) return;
+
+            const targetCalc = parts[0];
+            const pinStr = parts[1];
+            const dialStr = parts[2];
+
+            // 1. 【修正】基準面（F/B）に応じたピンの自動同期（y2反転マッピング）
+            const upPins = pinStr.split(','); // 解法テキストで「up」と指定されたピンリスト
+            const face = state.currentSolveFace;
+
+            if (face === 'F') {
+                // 表面操作時はテキストの表記通りにセット
+                Object.keys(state.pins).forEach(p => {
+                    state.pins[p] = upPins.includes(p);
+                });
+            } else {
+                // 裏面操作時(y2後)は、裏から見た位置を表面の物理ピンにクロス変換
+                // 裏でup(=true) ➔ 表ではdown(=false) になる点に注意
+                const y2Map = { 'UL': 'UR', 'UR': 'UL', 'DL': 'DR', 'DR': 'DL' };
+
+                // いったん裏面基準の全ピンをdown（表をすべてtrue）と仮定し、指定されたピンだけ裏でup（表でfalse）にする
+                Object.keys(state.pins).forEach(p => state.pins[p] = true);
+                upPins.forEach(backPin => {
+                    const frontPin = y2Map[backPin];
+                    if (frontPin) {
+                        state.pins[frontPin] = false; // 裏でup ➔ 表でdown
+                    }
+                });
+            }
+
+            // 2. 現在の解法基準面に応じた時計・ダイヤルマッピング
+            const clockMap = {
+                'UL': `${face}00`, 'U': `${face}10`, 'UR': `${face}20`,
+                'L': `${face}01`, 'C': `${face}11`, 'R': `${face}21`,
+                'DL': `${face}02`, 'D': `${face}12`, 'DR': `${face}22`
+            };
+            const dialMap = {
+                'UL': `${face}00`, 'UR': `${face}20`, 'DL': `${face}02`, 'DR': `${face}22`
+            };
+
+            let amount = 0;
+
+            if (isForward) {
+                const calcMatch = targetCalc.match(/^C->(.+)$/);
+                if (!calcMatch) return;
+                const targetName = calcMatch[1];
+
+                const currentC = state.clocks[`${face}11`];
+                if (targetName === '12') {
+                    amount = (12 - currentC) % 12;
+                } else {
+                    const targetClockId = clockMap[targetName];
+                    const currentTarget = state.clocks[targetClockId];
+                    amount = (currentTarget - currentC + 12) % 12;
+                }
+                state.solveAmounts[index] = amount;
+            } else {
+                const savedAmount = state.solveAmounts[index] || 0;
+                amount = (12 - savedAmount) % 12;
+            }
+
+            const axisId = dialMap[dialStr];
+            if (axisId) {
+                rotateEngine(axisId, amount);
+            }
+
+            // デバッグ情報の表示更新
+            const debugEl = document.getElementById('solve-debug');
+            if (debugEl) {
+                debugEl.innerHTML = `DEBUG: [手順 ${index + 1}]<br>` +
+                    `• <b>currentSolveFace</b> : ${face}<br>` +
+                    `• <b>X (Amount)</b> : ${amount > 0 ? '+' + amount : amount} (記憶: ${state.solveAmounts[index]})<br>` +
+                    `• <b>Y (Pins)</b> : ${pinStr}<br>` +
+                    `• <b>Z (Dial)</b> : ${dialStr} (物理軸: ${axisId})`;
+            }
+
+            // 【追加】解法手順に同期した円弧インジケーターの描画
+            if (axisId) {
+                drawArcIndicators([axisId]);
+            } else {
+                drawArcIndicators([]); // y2などのときは円弧を消去
+            }
+        }
+        // 【新設】解法コントロールボタンの処理群
+        function solveFirst() {
+            const savedMoves = [...state.scrambleMoves];
+            const savedCurrentScramble = state.currentMoveIndex;
+
+            moveFirst(true);
+            state.scrambleMoves = savedMoves;
+            while (state.currentMoveIndex < savedCurrentScramble) {
+                moveNext();
+            }
+
+            state.currentSolveIndex = -1;
+            state.currentSolveFace = 'F'; // 【追加】面を F にリセット
+            renderSolutionHTML();
+            renderAllDisplays(false);
+
+            // 【追加】最初に戻ったときのデバッグ表示リセット
+            const debugEl = document.getElementById('solve-debug');
+            if (debugEl) {
+                debugEl.innerHTML = `DEBUG: [未開始] Face: F, X(Amount): -, Y(Pins): -, Z(Dial): -`;
+            }
+        }
+        // 【新設】現在の解法インデックスの文字列からピン状態をクリーンに復元する関数
+        function restoreSolvePinsForCurrentIndex() {
+            if (state.currentSolveIndex >= 0 && state.currentSolveIndex < state.solveMoves.length) {
+                const move = state.solveMoves[state.currentSolveIndex];
+                if (move === 'y2') {
+                    Object.querySelectorAll('.arc-indicator').forEach(el => el.remove());
+                    Object.keys(state.pins).forEach(p => state.pins[p] = false);
+                    return;
+                }
+                const parts = move.split(':');
+                if (parts.length === 3) {
+                    const pinStr = parts[1];
+                    const upPins = pinStr.split(',');
+                    const face = state.currentSolveFace;
+
+                    if (face === 'F') {
+                        Object.keys(state.pins).forEach(p => {
+                            state.pins[p] = upPins.includes(p);
+                        });
+                    } else {
+                        const y2Map = { 'UL': 'UR', 'UR': 'UL', 'DL': 'DR', 'DR': 'DL' };
+                        Object.keys(state.pins).forEach(p => state.pins[p] = true);
+                        upPins.forEach(backPin => {
+                            const frontPin = y2Map[backPin];
+                            if (frontPin) state.pins[frontPin] = false;
+                        });
+                    }
+                    return;
+                }
+            }
+            Object.keys(state.pins).forEach(p => state.pins[p] = false);
+        }
+
+        // 【修正】solvePrev をシンプルで確実なロジックに書き換え
+        // 【修正】戻り先のステップの円弧表示を完全に同期させる
+        function solvePrev() {
+            if (state.currentSolveIndex >= 0) {
+                // 1. 現在の手順を「逆回転」で実行して時計の針を戻す
+                applySolveMoveAt(state.currentSolveIndex, false);
+
+                // 2. 解法の手順インデックスを1つ戻す
+                state.currentSolveIndex--;
+
+                // 3. 戻った先（1手前）の手順に合わせた正しいピン状態を完全に復元する
+                restoreSolvePinsForCurrentIndex();
+
+                // 4. 戻った先の手順のダイヤルに円弧表示を更新する
+                if (state.currentSolveIndex >= 0) {
+                    // 針を動かさないように、現在の状態のピンとダイヤル位置だけを再適用させて円弧を上書き描画
+                    const backupAmounts = [...state.solveAmounts];
+                    applySolveMoveAt(state.currentSolveIndex, true);
+                    applySolveMoveAt(state.currentSolveIndex, false);
+                    state.solveAmounts = backupAmounts;
+                } else {
+                    drawArcIndicators([]); // 開始前（-1）に戻ったら円弧を一掃
+                }
+
+                renderSolutionHTML();
+                renderAllDisplays(false, false);
+            }
+        }
+
+        function solveNext() {
+            if (state.currentSolveIndex < state.solveMoves.length - 1) {
+                state.currentSolveIndex++;
+                applySolveMoveAt(state.currentSolveIndex, true);
+                renderSolutionHTML();
+                renderAllDisplays(false, true);
+            }
+        }
+
+        function solveLast() {
+            while (state.currentSolveIndex < state.solveMoves.length - 1) {
+                solveNext();
+            }
         }
 
         initBoards();
