@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>7-Simul 練習アプリ - スクランブル実装(5-8手目)</title>
+    <title>7-Simul 練習アプリ</title>
     <style>
         * {
             box-sizing: border-box;
@@ -29,19 +29,14 @@
             box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
             text-align: center;
             width: 100%;
-            max-width: 440px;
+            max-width: 600px;
+            /* 横並びに対応するため最大幅を少し拡張 */
         }
 
         h2 {
-            margin: 0 0 5px 0;
+            margin: 0 0 10px 0;
             color: #212529;
             font-size: 20px;
-        }
-
-        .description {
-            font-size: 12px;
-            color: #868e96;
-            margin-bottom: 15px;
         }
 
         /* スクランブル表示エリア */
@@ -50,7 +45,7 @@
             border: 2px solid #dee2e6;
             border-radius: 10px;
             padding: 12px;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
             font-family: monospace;
             font-size: 14px;
             line-height: 1.8;
@@ -80,19 +75,25 @@
             text-decoration: underline;
         }
 
-        /* コントロールボタンのコンテナ */
+        /* 【レイアウト変更】ボタン群と生成ボタンを横一列に並べるコンテナ */
+        .control-panel {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
         .scramble-controls {
             display: flex;
-            justify-content: center;
-            gap: 8px;
-            margin-bottom: 15px;
+            gap: 4px;
+            flex: 1;
         }
 
         .btn-ctrl {
             flex: 1;
-            max-width: 65px;
-            padding: 8px 0;
-            font-size: 15px;
+            padding: 10px 0;
+            font-size: 14px;
             font-weight: bold;
             border: 2px solid #ced4da;
             background-color: #fff;
@@ -107,48 +108,49 @@
             border-color: #868e96;
         }
 
-        .mode-container {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .btn-mode {
-            flex: 1;
-            max-width: 120px;
-            padding: 8px 16px;
+        .btn-scramble {
+            background-color: #228be6;
+            color: white;
             font-size: 14px;
             font-weight: bold;
-            border: 2px solid #ced4da;
-            background-color: #fff;
-            color: #495057;
+            padding: 10px 16px;
+            border: none;
             border-radius: 8px;
             cursor: pointer;
-            transition: all 0.1s;
+            flex: 1;
+            box-shadow: 0 4px 12px rgba(34, 139, 230, 0.25);
+            white-space: nowrap;
         }
 
-        .btn-mode.active {
-            background-color: #e2e6ea;
-            border-color: #495057;
-            color: #212529;
+        .btn-scramble:active {
+            background-color: #1c7ed6;
         }
 
+        /* 【レイアウト変更】表裏ボードを横並びにするラッパー */
         .clock-wrapper {
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
+            flex-wrap: wrap;
             gap: 20px;
+            justify-content: center;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
+        }
+
+        .board-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         .clock-board {
             position: relative;
-            width: 260px;
-            height: 260px;
+            width: 250px;
+            /* 横並び時の収まりを良くするため微調整 */
+            height: 250px;
             border-radius: 50%;
             border: 4px solid #495057;
-            padding: 20px;
+            padding: 18px;
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             grid-template-rows: repeat(3, 1fr);
@@ -171,15 +173,15 @@
             font-weight: bold;
             font-size: 14px;
             color: #495057;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
         }
 
         .sub-clock {
             background: #e1f5fe;
             border-radius: 50%;
             border: 2px solid #0288d1;
-            width: 66px;
-            height: 66px;
+            width: 62px;
+            height: 62px;
         }
 
         .sub-clock.clickable {
@@ -216,8 +218,8 @@
 
         .arc-indicator {
             position: absolute;
-            width: 80px;
-            height: 80px;
+            width: 76px;
+            height: 76px;
             pointer-events: none;
             z-index: 15;
             transform: translate(-50%, -50%);
@@ -230,22 +232,55 @@
             stroke-linecap: round;
         }
 
-        .btn-scramble {
-            background-color: #228be6;
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            width: 100%;
-            max-width: 260px;
-            box-shadow: 0 4px 12px rgba(34, 139, 230, 0.25);
+        /* 【新デザイン】y2 ↔ x2 切り替え用のトグルスイッチUIエリア */
+        .toggle-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            margin-top: 10px;
         }
 
-        .btn-scramble:active {
-            background-color: #1c7ed6;
+        /* モード変更用の軸アイコンSVG */
+        .axis-icon {
+            width: 44px;
+            height: 44px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .axis-icon.inactive {
+            opacity: 0.3;
+            /* 選択されていない方のアイコンを薄くする */
+        }
+
+        /* スイッチの土台 */
+        .switch-base {
+            position: relative;
+            width: 70px;
+            height: 30px;
+            background-color: #ced4da;
+            border: 2px solid #adb5bd;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        /* スイッチの動く黒い丸ノブ */
+        .switch-knob {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background-color: #212529;
+            border-radius: 50%;
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* x2状態の時のノブの移動位置 */
+        .switch-base.x2-active .switch-knob {
+            transform: translateX(40px);
         }
 
         /* 針の回転アニメーション用スタイル */
@@ -254,7 +289,6 @@
             transition: transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
         }
 
-        /* アニメーションを一時的に無効化するためのクラス */
         .no-transition line {
             transition: none !important;
         }
@@ -269,30 +303,48 @@
             ここにスクランブルが表示されます
         </div>
 
-        <div class="scramble-controls">
-            <button class="btn-ctrl" onclick="moveFirst()">|◀</button>
-            <button class="btn-ctrl" onclick="movePrev()">◀</button>
-            <button class="btn-ctrl" onclick="moveNext()">▶</button>
-            <button class="btn-ctrl" onclick="moveLast()">▶|</button>
+        <div class="control-panel">
+            <div class="scramble-controls">
+                <button class="btn-ctrl" onclick="moveFirst()">|◀</button>
+                <button class="btn-ctrl" onclick="movePrev()">◀</button>
+                <button class="btn-ctrl" onclick="moveNext()">▶</button>
+                <button class="btn-ctrl" onclick="moveLast()">▶|</button>
+            </div>
+            <button class="btn-scramble" onclick="generateScrambleText()">Scramble</button>
         </div>
 
-        <button class="btn-scramble" onclick="generateScrambleText()">スクランブル生成</button>
-
         <div class="clock-wrapper">
-            <div>
+            <div class="board-container">
                 <div class="board-title">表 (Front)</div>
                 <div id="board-front" class="clock-board"></div>
             </div>
 
-            <div>
+            <div class="board-container">
                 <div class="board-title">裏 (Back)</div>
                 <div id="board-back" class="clock-board"></div>
             </div>
         </div>
 
-        <div class="mode-container">
-            <button id="mode-y2" class="btn-mode active" onclick="setFlipMode('y2')">y2<br> (左右反転)</button>
-            <button id="mode-x2" class="btn-mode" onclick="setFlipMode('x2')">x2<br> (上下反転)</button>
+        <div class="toggle-container">
+            <svg id="icon-y2" class="axis-icon" viewBox="0 0 60 60" onclick="setFlipMode('y2')">
+                <circle cx="30" cy="30" r="18" fill="none" stroke="#000" stroke-width="3" />
+                <line x1="30" y1="5" x2="30" y2="12" stroke="#000" stroke-width="3" stroke-linecap="round" />
+                <line x1="30" y1="48" x2="30" y2="55" stroke="#000" stroke-width="3" stroke-linecap="round" />
+                <text x="30" y="36" font-size="18" font-weight="bold" font-family="sans-serif"
+                    text-anchor="middle">y2</text>
+            </svg>
+
+            <div id="toggle-switch" class="switch-base" onclick="toggleFlipModeSwitch()">
+                <div class="switch-knob"></div>
+            </div>
+
+            <svg id="icon-x2" class="axis-icon inactive" viewBox="0 0 60 60" onclick="setFlipMode('x2')">
+                <circle cx="30" cy="30" r="18" fill="none" stroke="#000" stroke-width="3" />
+                <line x1="5" y1="30" x2="12" y2="30" stroke="#000" stroke-width="3" stroke-linecap="round" />
+                <line x1="48" y1="30" x2="55" y2="30" stroke="#000" stroke-width="3" stroke-linecap="round" />
+                <text x="30" y="36" font-size="18" font-weight="bold" font-family="sans-serif"
+                    text-anchor="middle">x2</text>
+            </svg>
         </div>
     </div>
 
@@ -450,7 +502,7 @@
             }
 
             let currentAngle = state.visualAngles[id];
-            
+
             if (instant) {
                 state.visualAngles[id] = targetAngleBase;
                 hand.style.transform = `rotate(${targetAngleBase}deg)`;
@@ -459,20 +511,15 @@
                 if (diff < -180) diff += 360;
                 if (diff > 180) diff -= 360;
 
-                // 180度（6時間分）の回転の時、回転方向を一意にする
                 if (Math.abs(diff) === 180) {
                     const isFrontFace = id[0] === 'F';
-                    const isBeforeY2 = state.currentMoveIndex <= 8; // y2はインデックス9
+                    const isBeforeY2 = state.currentMoveIndex <= 8;
 
-                    // 表面から見て時計回り (Front F: +180, Back B: -180)
-                    // 裏面から見て時計回り (Back B: +180, Front F: -180)
-                    let desiredDirection = 1; // +1 = clockwise, -1 = counter-clockwise
-                    
+                    let desiredDirection = 1;
+
                     if (isBeforeY2) {
-                        // 表面基準
                         desiredDirection = isFrontFace ? 1 : -1;
                     } else {
-                        // 裏面基準
                         desiredDirection = isFrontFace ? -1 : 1;
                     }
 
@@ -510,7 +557,6 @@
             renderPins();
 
             if (instant) {
-                // 強制的に再描画(Reflow)を発生させ、即時反映させた後にクラスを取り除く
                 if (frontBoard) frontBoard.offsetHeight;
                 if (backBoard) backBoard.offsetHeight;
                 if (frontBoard) frontBoard.classList.remove('no-transition');
@@ -538,19 +584,16 @@
                 el.className = `pin-btn ${isUpOnBack ? 'up' : 'down'}`;
             });
         }
-        // 【新関数】指定されたダイヤルの外側にオレンジの円弧を描画する
-        // 【改良】実際に回転した四隅の時計すべてに円弧を同時に描画する関数
+
         function drawArcIndicators(clockIds) {
-            // 前の円弧インジケーターを画面からすべて一掃
             document.querySelectorAll('.arc-indicator').forEach(el => el.remove());
             if (!clockIds || clockIds.length === 0) return;
 
             clockIds.forEach(clockId => {
-                const face = clockId[0]; // 'F' or 'B'
-                const cx = clockId[1];   // '0' or '2'
-                const cy = clockId[2];   // '0' or '2'
+                const face = clockId[0];
+                const cx = clockId[1];
+                const cy = clockId[2];
 
-                // 3x3グリッド内の四隅の位置（%）
                 const posX = cx === '0' ? '18%' : '82%';
                 const posY = cy === '0' ? '18%' : '82%';
 
@@ -563,27 +606,25 @@
                 svg.style.top = posY;
                 svg.setAttribute("viewBox", "0 0 100 100");
 
-                // 四隅の位置（左上・右上・左下・右下）に応じて、円弧の向き（外側を囲う角度）を調整
                 let pathData = "";
                 if (cx === '0' && cy === '0') {
-                    pathData = "M 15 50 A 35 35 0 0 1 50 15"; // 左上
+                    pathData = "M 15 50 A 35 35 0 0 1 50 15";
                 } else if (cx === '2' && cy === '0') {
-                    pathData = "M 50 15 A 35 35 0 0 1 85 50"; // 右上
+                    pathData = "M 50 15 A 35 35 0 0 1 85 50";
                 } else if (cx === '0' && cy === '2') {
-                    pathData = "M 50 85 A 35 35 0 0 1 15 50"; // 左下
+                    pathData = "M 50 85 A 35 35 0 0 1 15 50";
                 } else if (cx === '2' && cy === '2') {
-                    pathData = "M 85 50 A 35 35 0 0 1 50 85"; // 右下
+                    pathData = "M 85 50 A 35 35 0 0 1 50 85";
                 }
 
                 svg.innerHTML = `<path class="arc-path" d="${pathData}" />`;
                 board.appendChild(svg);
             });
         }
-        // 【新アプローチ】現在の手順（インデックス）に基づいて、表示すべき円弧の場所を一意に決定する関数
+
         function updateArcDisplayForCurrentIndex() {
             const index = state.currentMoveIndex;
 
-            // 初期状態、またはスクランブル完了状態のときは円弧をすべて消去
             if (index < 0 || index >= state.scrambleMoves.length) {
                 drawArcIndicators([]);
                 return;
@@ -597,11 +638,10 @@
 
             const match = move.match(/^([A-Z]+)/);
             if (!match) return;
-            const op = match[1]; // "UR", "U", "R" など
+            const op = match[1];
 
             let arcs = [];
             if (index <= 8) {
-                // 表面セグメントの円弧位置定義
                 const frontArcs = {
                     'UR': ['F20'], 'DR': ['F22'], 'DL': ['F02'], 'UL': ['F00'],
                     'U': ['F00', 'F20'],
@@ -612,12 +652,11 @@
                 };
                 arcs = frontArcs[op] || [];
             } else {
-                // 裏面セグメントの円弧位置定義 (y2反転表示に準拠)
                 const backArcs = {
-                    'U': ['B20', 'B00'], // 裏の上up ➔ 表示上の右上(B20)と左上(B00)
-                    'R': ['B20', 'B22'], // 裏の右up ➔ 表示上の右上(B20)と右下(B22)
-                    'D': ['B22', 'B02'], // 裏の下up ➔ 表示上の右下(B22)と左下(B02)
-                    'L': ['B00', 'B02'], // 裏の左up ➔ 表示上の左上(B00)と左下(B02)
+                    'U': ['B20', 'B00'],
+                    'R': ['B20', 'B22'],
+                    'D': ['B22', 'B02'],
+                    'L': ['B00', 'B02'],
                     'ALL': ['B20', 'B00', 'B22', 'B02']
                 };
                 arcs = backArcs[op] || [];
@@ -626,21 +665,37 @@
             drawArcIndicators(arcs);
         }
 
+        // 【修正】トグルスイッチ及びグラフィカルアイコンに対応したモード切り替え処理
         function setFlipMode(mode) {
-            if (state.flipMode === mode) return;
             state.flipMode = mode;
 
-            document.getElementById('mode-y2').classList.toggle('active', mode === 'y2');
-            document.getElementById('mode-x2').classList.toggle('active', mode === 'x2');
+            // スイッチ土台のクラス切り替え（ノブの位置移動用）
+            const toggleSwitch = document.getElementById('toggle-switch');
+            if (mode === 'x2') {
+                toggleSwitch.classList.add('x2-active');
+                document.getElementById('icon-x2').classList.remove('inactive');
+                document.getElementById('icon-y2').classList.add('inactive');
+            } else {
+                toggleSwitch.classList.remove('x2-active');
+                document.getElementById('icon-y2').classList.remove('inactive');
+                document.getElementById('icon-x2').classList.add('inactive');
+            }
 
             buildDOMBoards();
-            renderAllDisplays(true); // ボード切り替え時は瞬時に反映
+            renderAllDisplays(true);
+        }
+
+        // 【新関数】トグルスイッチそのものをクリックした際の、反転モードの交互トグル処理
+        function toggleFlipModeSwitch() {
+            const nextMode = state.flipMode === 'y2' ? 'x2' : 'y2';
+            setFlipMode(nextMode);
         }
 
         function handleManualRotate(id) {
             rotateEngine(id, 1);
-            renderAllDisplays(); // 手動回転時にアニメーション表示させる
+            renderAllDisplays();
         }
+
         function rotateEngine(id, amount) {
             const pinOfAxis = {
                 'F00': 'UL', 'B20': 'UL',
@@ -703,7 +758,6 @@
                 });
             }
 
-            // 四隅の裏表逆回転ルールを適用
             const cornersToCheck = isBaseFront ? ['F00', 'F20', 'F02', 'F22'] : ['B00', 'B20', 'B02', 'B22'];
             cornersToCheck.forEach(cId => {
                 if (deltas[cId] > 0) {
@@ -712,7 +766,6 @@
                 }
             });
 
-            // 最終決定した回転量を一斉に適用
             for (let cKey in deltas) {
                 state.clocks[cKey] = (state.clocks[cKey] + deltas[cKey]) % 12;
             }
@@ -734,7 +787,7 @@
             backOps.forEach(op => { moves.push(`${op}${getRandomAmount()}`); });
 
             state.scrambleMoves = moves;
-            moveFirst(true); // 新規スクランブル生成時は瞬時にリセット
+            moveFirst(true);
         }
 
         function renderScrambleHTML() {
@@ -756,11 +809,11 @@
                 container.appendChild(span);
             });
         }
+
         function applyMoveAt(index, isForward) {
             if (index < 0 || index >= state.scrambleMoves.length) return;
             const move = state.scrambleMoves[index];
 
-            // 【修正ポイント】y2 のときは円弧を確実に消去し、ピン状態をALL down（裏ALL up）にして、ここで処理を終える
             if (move === 'y2') {
                 drawArcIndicators([]);
                 Object.keys(state.pins).forEach(p => state.pins[p] = false);
@@ -818,7 +871,7 @@
             if (state.currentMoveIndex >= 0 && state.currentMoveIndex < state.scrambleMoves.length) {
                 const curMove = state.scrambleMoves[state.currentMoveIndex];
                 if (curMove === 'y2') {
-                    drawArcIndicators([]); // y2のときは円弧を消去
+                    drawArcIndicators([]);
                     return;
                 }
                 const match = curMove.match(/^([A-Z]+)/);
@@ -857,6 +910,7 @@
             }
             Object.keys(state.pins).forEach(p => state.pins[p] = false);
         }
+
         function moveFirst(instant = false) {
             if (instant) {
                 initDataState();
@@ -871,8 +925,8 @@
             Object.keys(state.pins).forEach(p => state.pins[p] = false);
             state.currentMoveIndex = -1;
             renderScrambleHTML();
-            renderAllDisplays(instant); // 指定されたフラグに従う
-            updateArcDisplayForCurrentIndex(); // 【追加】
+            renderAllDisplays(instant);
+            updateArcDisplayForCurrentIndex();
         }
 
         function movePrev() {
@@ -881,8 +935,8 @@
                 state.currentMoveIndex--;
                 restorePinsForCurrentIndex();
                 renderScrambleHTML();
-                renderAllDisplays(false, false); // 逆向きの移動
-                updateArcDisplayForCurrentIndex(); // 【追加】
+                renderAllDisplays(false, false);
+                updateArcDisplayForCurrentIndex();
             }
         }
 
@@ -891,8 +945,8 @@
                 state.currentMoveIndex++;
                 applyMoveAt(state.currentMoveIndex, true);
                 renderScrambleHTML();
-                renderAllDisplays(false, true); // 順向きの移動
-                updateArcDisplayForCurrentIndex(); // 【追加】
+                renderAllDisplays(false, true);
+                updateArcDisplayForCurrentIndex();
             }
         }
 
@@ -903,7 +957,7 @@
             }
             restorePinsForCurrentIndex();
             renderScrambleHTML();
-            renderAllDisplays(instant); // 指定されたフラグに従う
+            renderAllDisplays(instant);
             updateArcDisplayForCurrentIndex();
         }
 
