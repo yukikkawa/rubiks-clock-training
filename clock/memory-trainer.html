@@ -414,10 +414,10 @@
             currentSolveFace: 'F',
             // 【追加】固定の解法手順リスト
             solveMoves: [
-                "C->U:DR:DR", "C->R:UL:UL", "C->L:UR:UR", "C->D:UL,UR:UL", "C->12:UL,UR,DR:UR",
+                "DR/DR:C->U", "UL/UL:C->R", "UR/UR:C->L", "UL,UR/UL:C->D", "UL,UR,DR/UR:C->12",
                 "y2",
-                "C->U:DR:DR", "C->R:UL:UL", "C->L:UR:UR", "C->D:UL,UR:UL", "C->DL:UL,UR,DR:UR",
-                "C->DR:UL,UR,DL:UL", "C->UL:UR,DR,DL:UR", "C->UR:UL,DR,DL:UL", "C->12:UL,UR,DR,DL:UR"
+                "DR/DR:C->U", "UL/UL:C->R", "UR/UR:C->L", "UL,UR/UL:C->D", "UL,UR,DR/UR:C->DL",
+                "UL,UR,DL/UL:C->DR", "UR,DR,DL/UR:C->UL", "UL,DR,DL/UL:C->UR", "UL,UR,DR,DL/UR:C->12"
             ]
         };
 
@@ -1031,46 +1031,65 @@
             generateScrambleText();
             renderSolutionHTML(); // 【追加】解法テキストの初期表示
         }
-        // 【新設】解法の手順を解析して適用する関数
+        // 【新設】現在の手順位置から、基準面(FかB)を一意に正しく決定する関数
+        function updateCurrentSolveFace() {
+            let y2Count = 0;
+            for (let i = 0; i <= state.currentSolveIndex; i++) {
+                if (state.solveMoves[i] === 'y2') {
+                    y2Count++;
+                }
+            }
+            // y2の通過回数が奇数なら裏面('B')、偶数なら表面('F')
+            state.currentSolveFace = (y2Count % 2 === 1) ? 'B' : 'F';
+        }
         function applySolveMoveAt(index, isForward) {
             if (index < 0 || index >= state.solveMoves.length) return;
             const move = state.solveMoves[index];
 
+            // 先に現在の正しい面に更新する
+            updateCurrentSolveFace();
+            const face = state.currentSolveFace; // 現在の面を取得
+
             if (move === 'y2') {
-                drawArcIndicators([]);
-                Object.keys(state.pins).forEach(p => state.pins[p] = false);
-                state.currentSolveFace = isForward ? 'B' : 'F';
+                drawArcIndicators([]); // 円弧のみを消去
+
+                const debugEl = document.getElementById('solve-debug');
+                if (debugEl) {
+                    debugEl.innerHTML = `DEBUG: [手順 ${index + 1}]<br>` +
+                        `• <b>currentSolveFace</b> : ${face}<br>` +
+                        `• <b>X (Amount)</b> : 0 (記憶: 0)<br>` +
+                        `• <b>Y (Pins)</b> : なし<br>` +
+                        `• <b>Z (Dial)</b> : なし<br>` +
+                        `• <b>F (Flip)</b> : y2`;
+                }
                 return;
             }
 
-            const parts = move.split(':');
-            if (parts.length !== 3) return;
+            const mainParts = move.split(':');
+            if (mainParts.length !== 2) return;
 
-            const targetCalc = parts[0];
-            const pinStr = parts[1];
-            const dialStr = parts[2];
+            const leftSide = mainParts[0];
+            const targetCalc = mainParts[1];
 
-            // 1. 【修正】基準面（F/B）に応じたピンの自動同期（y2反転マッピング）
-            const upPins = pinStr.split(','); // 解法テキストで「up」と指定されたピンリスト
-            const face = state.currentSolveFace;
+            const leftParts = leftSide.split('/');
+            if (leftParts.length !== 2) return;
+
+            const pinStr = leftParts[0];
+            const dialStr = leftParts[1];
+
+            // 1. 基準面（F/B）に応じたピンの自動同期
+            const upPins = pinStr.split(',');
 
             if (face === 'F') {
-                // 表面操作時はテキストの表記通りにセット
                 Object.keys(state.pins).forEach(p => {
                     state.pins[p] = upPins.includes(p);
                 });
             } else {
-                // 裏面操作時(y2後)は、裏から見た位置を表面の物理ピンにクロス変換
-                // 裏でup(=true) ➔ 表ではdown(=false) になる点に注意
                 const y2Map = { 'UL': 'UR', 'UR': 'UL', 'DL': 'DR', 'DR': 'DL' };
-
-                // いったん裏面基準の全ピンをdown（表をすべてtrue）と仮定し、指定されたピンだけ裏でup（表でfalse）にする
                 Object.keys(state.pins).forEach(p => state.pins[p] = true);
                 upPins.forEach(backPin => {
                     const frontPin = y2Map[backPin];
-                    if (frontPin) {
-                        state.pins[frontPin] = false; // 裏でup ➔ 表でdown
-                    }
+                    if (frontPin) state.pins[frontPin] = false;
                 });
             }
 
@@ -1110,24 +1129,23 @@
                 rotateEngine(axisId, amount);
             }
 
-            // デバッグ情報の表示更新
+            // 【修正】通常手順のときは F (Flip) : なし を出力
             const debugEl = document.getElementById('solve-debug');
             if (debugEl) {
                 debugEl.innerHTML = `DEBUG: [手順 ${index + 1}]<br>` +
                     `• <b>currentSolveFace</b> : ${face}<br>` +
                     `• <b>X (Amount)</b> : ${amount > 0 ? '+' + amount : amount} (記憶: ${state.solveAmounts[index]})<br>` +
                     `• <b>Y (Pins)</b> : ${pinStr}<br>` +
-                    `• <b>Z (Dial)</b> : ${dialStr} (物理軸: ${axisId})`;
+                    `• <b>Z (Dial)</b> : ${dialStr} (物理軸: ${axisId})<br>` +
+                    `• <b>F (Flip)</b> : なし`;
             }
 
-            // 【追加】解法手順に同期した円弧インジケーターの描画
             if (axisId) {
                 drawArcIndicators([axisId]);
             } else {
-                drawArcIndicators([]); // y2などのときは円弧を消去
+                drawArcIndicators([]);
             }
         }
-        // 【新設】解法コントロールボタンの処理群
         function solveFirst() {
             const savedMoves = [...state.scrambleMoves];
             const savedCurrentScramble = state.currentMoveIndex;
@@ -1139,51 +1157,54 @@
             }
 
             state.currentSolveIndex = -1;
-            state.currentSolveFace = 'F'; // 【追加】面を F にリセット
+            state.currentSolveFace = 'F';
             renderSolutionHTML();
             renderAllDisplays(false);
 
-            // 【追加】最初に戻ったときのデバッグ表示リセット
             const debugEl = document.getElementById('solve-debug');
             if (debugEl) {
-                debugEl.innerHTML = `DEBUG: [未開始] Face: F, X(Amount): -, Y(Pins): -, Z(Dial): -`;
+                // 初期表示にも F (Flip) を追加
+                debugEl.innerHTML = `DEBUG: [未開始] Face: F, X(Amount): -, Y(Pins): -, Z(Dial): -, F(Flip): -`;
             }
         }
         // 【新設】現在の解法インデックスの文字列からピン状態をクリーンに復元する関数
         function restoreSolvePinsForCurrentIndex() {
             if (state.currentSolveIndex >= 0 && state.currentSolveIndex < state.solveMoves.length) {
                 const move = state.solveMoves[state.currentSolveIndex];
+                // 【修正】戻り先が y2 のステップだった場合も、ピンを強制クリアせずそのままにする
                 if (move === 'y2') {
-                    Object.querySelectorAll('.arc-indicator').forEach(el => el.remove());
-                    Object.keys(state.pins).forEach(p => state.pins[p] = false);
-                    return;
+                    document.querySelectorAll('.arc-indicator').forEach(el => el.remove());
+                    return; // ピンのクリア処理を削除して維持
                 }
-                const parts = move.split(':');
-                if (parts.length === 3) {
-                    const pinStr = parts[1];
-                    const upPins = pinStr.split(',');
-                    const face = state.currentSolveFace;
 
-                    if (face === 'F') {
-                        Object.keys(state.pins).forEach(p => {
-                            state.pins[p] = upPins.includes(p);
-                        });
-                    } else {
-                        const y2Map = { 'UL': 'UR', 'UR': 'UL', 'DL': 'DR', 'DR': 'DL' };
-                        Object.keys(state.pins).forEach(p => state.pins[p] = true);
-                        upPins.forEach(backPin => {
-                            const frontPin = y2Map[backPin];
-                            if (frontPin) state.pins[frontPin] = false;
-                        });
+                // 【修正】新記法に合わせたピン抽出処理
+                const mainParts = move.split(':');
+                if (mainParts.length === 2) {
+                    const leftSide = mainParts[0];
+                    const leftParts = leftSide.split('/');
+                    if (leftParts.length === 2) {
+                        const pinStr = leftParts[0];
+                        const upPins = pinStr.split(',');
+                        const face = state.currentSolveFace;
+
+                        if (face === 'F') {
+                            Object.keys(state.pins).forEach(p => {
+                                state.pins[p] = upPins.includes(p);
+                            });
+                        } else {
+                            const y2Map = { 'UL': 'UR', 'UR': 'UL', 'DL': 'DR', 'DR': 'DL' };
+                            Object.keys(state.pins).forEach(p => state.pins[p] = true);
+                            upPins.forEach(backPin => {
+                                const frontPin = y2Map[backPin];
+                                if (frontPin) state.pins[frontPin] = false;
+                            });
+                        }
+                        return;
                     }
-                    return;
                 }
             }
             Object.keys(state.pins).forEach(p => state.pins[p] = false);
         }
-
-        // 【修正】solvePrev をシンプルで確実なロジックに書き換え
-        // 【修正】戻り先のステップの円弧表示を完全に同期させる
         function solvePrev() {
             if (state.currentSolveIndex >= 0) {
                 // 1. 現在の手順を「逆回転」で実行して時計の針を戻す
@@ -1192,18 +1213,25 @@
                 // 2. 解法の手順インデックスを1つ戻す
                 state.currentSolveIndex--;
 
+                // 【追加】戻った直後のインデックス位置で基準面を再確定
+                updateCurrentSolveFace();
+
                 // 3. 戻った先（1手前）の手順に合わせた正しいピン状態を完全に復元する
                 restoreSolvePinsForCurrentIndex();
 
                 // 4. 戻った先の手順のダイヤルに円弧表示を更新する
                 if (state.currentSolveIndex >= 0) {
-                    // 針を動かさないように、現在の状態のピンとダイヤル位置だけを再適用させて円弧を上書き描画
                     const backupAmounts = [...state.solveAmounts];
                     applySolveMoveAt(state.currentSolveIndex, true);
                     applySolveMoveAt(state.currentSolveIndex, false);
                     state.solveAmounts = backupAmounts;
                 } else {
-                    drawArcIndicators([]); // 開始前（-1）に戻ったら円弧を一掃
+                    drawArcIndicators([]);
+                    // 開始前に戻ったときはデバッグ表示も初期化
+                    const debugEl = document.getElementById('solve-debug');
+                    if (debugEl) {
+                        debugEl.innerHTML = `DEBUG: [未開始] Face: F, X(Amount): -, Y(Pins): -, Z(Dial): -`;
+                    }
                 }
 
                 renderSolutionHTML();
@@ -1214,6 +1242,10 @@
         function solveNext() {
             if (state.currentSolveIndex < state.solveMoves.length - 1) {
                 state.currentSolveIndex++;
+
+                // 【追加】進んだ直後のインデックス位置で基準面を再確定
+                updateCurrentSolveFace();
+
                 applySolveMoveAt(state.currentSolveIndex, true);
                 renderSolutionHTML();
                 renderAllDisplays(false, true);
