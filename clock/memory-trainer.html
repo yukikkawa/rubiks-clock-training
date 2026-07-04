@@ -122,15 +122,15 @@
 
         .clock-board {
             position: relative;
-            width: 250px;
-            height: 250px;
+            width: min(250px, 43vw);
+            height: min(250px, 43vw);
             border-radius: 50%;
             border: 4px solid #495057;
-            padding: 18px;
+            padding: min(18px, 3vw);
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             grid-template-rows: repeat(3, 1fr);
-            gap: 6px;
+            gap: min(6px, 1vw);
             align-items: center;
             justify-items: center;
         }
@@ -156,8 +156,8 @@
             background: #e1f5fe;
             border-radius: 50%;
             border: 2px solid #0288d1;
-            width: 62px;
-            height: 62px;
+            width: min(62px, 10.5vw);
+            height: min(62px, 10.5vw);
         }
 
         .sub-clock.clickable {
@@ -172,8 +172,8 @@
         /* ピンボタン */
         .pin-btn {
             position: absolute;
-            width: 20px;
-            height: 20px;
+            width: min(20px, 3.3vw);
+            height: min(20px, 3.3vw);
             border-radius: 50%;
             cursor: pointer;
             z-index: 10;
@@ -194,8 +194,8 @@
 
         .arc-indicator {
             position: absolute;
-            width: 76px;
-            height: 76px;
+            width: min(76px, 13vw);
+            height: min(76px, 13vw);
             pointer-events: none;
             z-index: 15;
             transform: translate(-50%, -50%);
@@ -286,8 +286,8 @@
         /* 解法用のピン強調輪郭と時計矢印のスタイル */
         .pin-highlight-ring {
             position: absolute;
-            width: 32px;
-            height: 32px;
+            width: min(32px, 5.3vw);
+            height: min(32px, 5.3vw);
             border-radius: 50% !important;
             pointer-events: none;
             z-index: 12;
