@@ -4,37 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ルービッククロック 計算練習</title>
+    <link rel="stylesheet" href="common.css">
+    <script src="clock-utils.js"></script>
     <style>
-        * {
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #f8f9fa;
-            margin: 0;
-            padding: 10px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
         }
         #app {
-            background: white;
-            padding: 20px 16px;
-            border-radius: 20px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.06);
-            text-align: center;
-            width: 100%;
             max-width: 400px;
-            position: relative;
         }
         .screen { display: none; }
         .active { display: block; }
         
-        h2 { margin-top: 10px; color: #212529; }
-        p { color: #6c757d; font-size: 14px; line-height: 1.5; }
-
         /* 時計エリア */
         .clock-container {
             display: flex;
@@ -99,55 +80,6 @@
         .clock-svg-small {
             flex: 0 0 85px;
             height: 85px;
-        }
-        
-        /* 難易度選択ボタン */
-        .difficulty-container {
-            display: flex;
-            gap: 8px;
-            margin: 15px 0;
-        }
-        .btn-difficulty {
-            flex: 1;
-            background-color: #e9ecef;
-            color: #495057;
-            padding: 10px 0;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: bold;
-        }
-        .btn-difficulty[data-level="beginner"].active {
-            background-color: #74c0fc;
-            color: white;
-        }
-        .btn-difficulty[data-level="intermediate"].active {
-            background-color: #ffd43b;
-            color: #862e00;
-        }
-        .btn-difficulty[data-level="advanced"].active {
-            background-color: #ff8787;
-            color: white;
-        }
-
-        /* ボタンのスタイル */
-        button {
-            font-family: inherit;
-            border: none;
-            cursor: pointer;
-            transition: background 0.1s, transform 0.05s;
-        }
-        button:active {
-            transform: scale(0.96);
-        }
-        .btn-start {
-            background-color: #2b8a3e;
-            color: white;
-            font-size: 18px;
-            font-weight: bold;
-            padding: 14px 32px;
-            border-radius: 12px;
-            width: 100%;
-            margin-top: 15px;
         }
         
         .btn-grid {
@@ -307,22 +239,21 @@
 
         /* カウントダウン演出 */
         #countdown-overlay {
-            background: rgba(255, 255, 255, 0.4); /* 3,2,1の間は白濁 */
+            background: rgba(255, 255, 255, 0.4);
         }
         #countdown-overlay.is-start {
-            background: none; /* START!の瞬間は背景なし */
-            pointer-events: none; /* START!の瞬間は操作を透過 */
+            background: none;
+            pointer-events: none;
         }
         #countdown-display {
             font-size: 100px;
             font-weight: 900;
             color: #2b8a3e;
-            text-shadow: none; /* 3,2,1の間は影なし */
+            text-shadow: none;
             transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             z-index: 20;
         }
         #countdown-overlay.is-start #countdown-display {
-            /* START!の瞬間だけ視認性のための光彩を付ける */
             text-shadow: 0 0 15px rgba(255,255,255,0.9), 0 0 30px rgba(255,255,255,0.9);
         }
 
@@ -362,30 +293,14 @@
         .btn-cancel { background-color: #e9ecef; color: #495057; }
 
         #pause-overlay {
-            background: #f8f9fa; /* 時計を完全に隠すために不透明な背景 */
+            background: #f8f9fa;
             z-index: 25;
             flex-direction: column;
         }
 
-        .btn-reset {
-            background: none;
-            border: none;
-            color: #fa5252;
-            text-decoration: underline;
-            font-size: 13px;
-            margin-top: 15px;
-            cursor: pointer;
-            padding: 5px 10px;
-        }
-
         /* 針の回転アニメーション用スタイル */
         .clock-svg line {
-            transform-origin: 50px 50px;
             transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1);
-        }
-        /* アニメーションを一時的に無効化するためのクラス */
-        .no-transition line {
-            transition: none !important;
         }
     </style>
 </head>
@@ -456,40 +371,22 @@
         </div>
         
         <div id="standard-clock-area" class="clock-container">
-            <svg class="clock-svg" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
-                <line id="hand-left" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
-            </svg>
+            <div id="standard-left-container"></div>
             <div class="arrow-box"><svg class="arrow-svg" viewBox="0 0 24 24"><path id="arrow-path" d="M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z"/></svg></div>
-            <svg class="clock-svg" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
-                <line id="hand-right" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
-            </svg>
+            <div id="standard-right-container"></div>
         </div>
 
         <div id="advanced-clock-area" class="advanced-clock-layout">
             <div class="clock-pair">
-                <svg class="clock-svg clock-svg-small" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
-                    <line id="hand-a" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
-                </svg>
+                <div id="advanced-a-container"></div>
                 <svg class="arrow-v-svg" viewBox="0 0 24 24"><path id="arrow-v1-path" d="M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z"/></svg>
-                <svg class="clock-svg clock-svg-small" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
-                    <line id="hand-b" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
-                </svg>
+                <div id="advanced-b-container"></div>
             </div>
             <div class="plus-sign">+</div>
             <div class="clock-pair">
-                <svg class="clock-svg clock-svg-small" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
-                    <line id="hand-c" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
-                </svg>
+                <div id="advanced-c-container"></div>
                 <svg class="arrow-v-svg" viewBox="0 0 24 24"><path id="arrow-v2-path" d="M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z"/></svg>
-                <svg class="clock-svg clock-svg-small" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="45" fill="none" stroke="#0288d1" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#f03e3e"/><circle cx="68.1" cy="16.9" r="2" fill="#495057"/><circle cx="83.1" cy="31.9" r="2" fill="#495057"/><circle cx="88" cy="50" r="2" fill="#495057"/><circle cx="83.1" cy="68.1" r="2" fill="#495057"/><circle cx="68.1" cy="83.1" r="2" fill="#495057"/><circle cx="50" cy="88" r="2" fill="#495057"/><circle cx="31.9" cy="83.1" r="2" fill="#495057"/><circle cx="16.9" cy="68.1" r="2" fill="#495057"/><circle cx="12" cy="50" r="2" fill="#495057"/><circle cx="16.9" cy="31.9" r="2" fill="#495057"/><circle cx="31.9" cy="16.9" r="2" fill="#495057"/>
-                    <line id="hand-d" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round" />
-                </svg>
+                <div id="advanced-d-container"></div>
             </div>
         </div>
 
@@ -559,25 +456,22 @@
         'hand-d': 0
     };
 
+    // Dynamically insert the clock SVGs
+    function initClockSVGs() {
+        document.getElementById('standard-left-container').appendChild(ClockUtils.createClockSVG('left', { className: 'clock-svg', handId: 'hand-left' }));
+        document.getElementById('standard-right-container').appendChild(ClockUtils.createClockSVG('right', { className: 'clock-svg', handId: 'hand-right' }));
+        
+        document.getElementById('advanced-a-container').appendChild(ClockUtils.createClockSVG('a', { className: 'clock-svg clock-svg-small', handId: 'hand-a' }));
+        document.getElementById('advanced-b-container').appendChild(ClockUtils.createClockSVG('b', { className: 'clock-svg clock-svg-small', handId: 'hand-b' }));
+        document.getElementById('advanced-c-container').appendChild(ClockUtils.createClockSVG('c', { className: 'clock-svg clock-svg-small', handId: 'hand-c' }));
+        document.getElementById('advanced-d-container').appendChild(ClockUtils.createClockSVG('d', { className: 'clock-svg clock-svg-small', handId: 'hand-d' }));
+    }
+
     function updateHandAngle(id, targetHour, instant = false) {
         const hand = document.getElementById(id);
         if (!hand) return;
-
-        const targetAngleBase = targetHour * 30;
-        let currentAngle = handAngles[id] || 0;
-
-        if (instant) {
-            handAngles[id] = targetAngleBase;
-            hand.style.transform = `rotate(${targetAngleBase}deg)`;
-        } else {
-            let diff = (targetAngleBase - currentAngle) % 360;
-            if (diff < -180) diff += 360;
-            if (diff > 180) diff -= 360;
-            
-            let newAngle = currentAngle + diff;
-            handAngles[id] = newAngle;
-            hand.style.transform = `rotate(${newAngle}deg)`;
-        }
+        // Delegate hand rotation logic to ClockUtils
+        ClockUtils.updateHandAngle(hand, handAngles, id, targetHour, instant);
     }
 
     const BEST_TIME_BASE_KEY = 'clock-training-best-time';
@@ -930,6 +824,7 @@
         return baseMs / 1000;
     }
 
+    // ミスペナルティ込みのタイム
     function getResultTimeSec(now = performance.now()) {
         return getBaseElapsedSec(now) + missCount * MISS_PENALTY_SEC;
     }
@@ -972,10 +867,10 @@
 
             let diff1, diff2;
             if (isT1toB1) {
-                v1Path.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z'); // 上向き (左向きを90度回転)
+                v1Path.setAttribute('d', 'M22,12 L10,2 L10,8 L2,8 L2,16 L10,16 L10,22 Z'); // 上向き
                 diff1 = b - a;
             } else {
-                v1Path.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z'); // 下向き (右向きを90度回転)
+                v1Path.setAttribute('d', 'M2,12 L14,2 L14,8 L22,8 L22,16 L14,16 L14,22 Z'); // 下向き
                 diff1 = a - b;
             }
 
@@ -989,7 +884,7 @@
 
             let totalDiff = diff1 + diff2;
 
-            // 時計の最短手数（-5〜6）に正規化
+            // 時計の最短手数に正規化
             while (totalDiff <= -5) totalDiff += 12;
             while (totalDiff > 6) totalDiff -= 12;
             correctAnswer = totalDiff;
@@ -1029,7 +924,6 @@
         }
 
         if (instant) {
-            // 強制的に再描画(Reflow)を発生させ、即時反映させた後にクラスを取り除く
             standardArea.offsetHeight;
             advancedArea.offsetHeight;
             standardArea.classList.remove('no-transition');
@@ -1043,12 +937,11 @@
         if (selected === correctAnswer) {
             triggerCorrectEffect();
         } else {
-            missCount++; // ミスをカウント
+            missCount++;
             triggerIncorrectEffect();
         }
     }
 
-    // 正解時の演出（タイマー停止あり）
     function triggerCorrectEffect() {
         isTransitioning = true;
         effectStartTime = performance.now(); 
@@ -1057,20 +950,19 @@
         setTimeout(() => {
             correctOverlay.classList.remove('show');
             let effectEndTime = performance.now();
-            totalPenaltyTime += (effectEndTime - effectStartTime); // 演出時間を差し引く
+            totalPenaltyTime += (effectEndTime - effectStartTime);
             isTransitioning = false;
             nextQuestion();
         }, 250);
     }
 
-    // 不正解時の演出（タイマーは停止しない）
     function triggerIncorrectEffect() {
-        isTransitioning = true; // 演出中の連続タップを防止
+        isTransitioning = true;
         incorrectOverlay.classList.add('show');
 
         setTimeout(() => {
             incorrectOverlay.classList.remove('show');
-            isTransitioning = false; // 問題は進めず、入力を再開可能にする
+            isTransitioning = false;
         }, 250);
     }
 
@@ -1079,7 +971,6 @@
         const baseTimeNum = getBaseElapsedSec(performance.now());
         const resultTimeNum = baseTimeNum + missCount * MISS_PENALTY_SEC;
 
-        // 保存前に過去の履歴と比較
         const history = getHistory(playedDifficulty);
         const recentForComparison = history.slice(-5);
         let comparisonHTML = "";
@@ -1115,6 +1006,9 @@
         updateDifficultyBestsList();
         showScreen('result-screen');
     }
+
+    // Initialize clock SVGs
+    initClockSVGs();
 
     selectDifficulty(selectedDifficulty);
     updateDifficultyBestsList();

@@ -4,39 +4,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>7-Simul 練習アプリ</title>
+    <title>7-Simul 盤面シミュレータ</title>
+    <link rel="stylesheet" href="common.css">
+    <script src="clock-utils.js"></script>
     <style>
-        * {
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: #f1f3f5;
-            margin: 0;
-            padding: 10px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
         }
 
         #app {
-            background: white;
-            padding: 20px 16px;
-            border-radius: 20px;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
-            text-align: center;
-            width: 100%;
             max-width: 600px;
-            /* 横並びに対応するため最大幅を少し拡張 */
-        }
-
-        h2 {
-            margin: 0 0 10px 0;
-            color: #212529;
-            font-size: 20px;
         }
 
         /* スクランブル表示エリア */
@@ -75,7 +52,7 @@
             text-decoration: underline;
         }
 
-        /* 【レイアウト変更】ボタン群と生成ボタンを横一列に並べるコンテナ */
+        /* ボタン群と生成ボタンを横一列に並べるコンテナ */
         .control-panel {
             display: flex;
             align-items: center;
@@ -126,7 +103,7 @@
             background-color: #1c7ed6;
         }
 
-        /* 【レイアウト変更】表裏ボードを横並びにするラッパー */
+        /* 表裏ボードを横並びにするラッパー */
         .clock-wrapper {
             display: flex;
             flex-direction: row;
@@ -146,7 +123,6 @@
         .clock-board {
             position: relative;
             width: 250px;
-            /* 横並び時の収まりを良くするため微調整 */
             height: 250px;
             border-radius: 50%;
             border: 4px solid #495057;
@@ -232,7 +208,7 @@
             stroke-linecap: round;
         }
 
-        /* 【新デザイン】y2 ↔ x2 切り替え用のトグルスイッチUIエリア */
+        /* y2 ↔ x2 切り替え用のトグルスイッチUIエリア */
         .toggle-container {
             display: flex;
             justify-content: center;
@@ -251,7 +227,6 @@
 
         .axis-icon.inactive {
             opacity: 0.3;
-            /* 選択されていない方のアイコンを薄くする */
         }
 
         /* スイッチの土台 */
@@ -283,7 +258,7 @@
             transform: translateX(40px);
         }
 
-        /* 【追加】解法コントロールのスタイル */
+        /* 解法コントロールのスタイル */
         .solution-controls {
             display: flex;
             justify-content: center;
@@ -292,7 +267,7 @@
             margin-bottom: 5px;
         }
 
-        /* 【新要素】解法テキスト表示エリアのスタイル */
+        /* 解法テキスト表示エリアのスタイル */
         .solution-container {
             background: #f8f9fa;
             border: 1px dashed #adb5bd;
@@ -308,7 +283,7 @@
             color: #495057;
         }
 
-        /* 【追加】解法用のピン強調輪郭と時計矢印のスタイル */
+        /* 解法用のピン強調輪郭と時計矢印のスタイル */
         .pin-highlight-ring {
             position: absolute;
             width: 32px;
@@ -319,20 +294,14 @@
             transform: translate(-50%, -50%);
         }
 
-        /* 新しく「上げる」ピンの輪郭（オレンジの太い実線） */
+        /* 新しく「上げる」ピンの輪郭 */
         .pin-highlight-ring.ring-up {
             border: 3px solid #ff922b;
         }
 
-        /* 新しく「下げる」ピンの輪郭（グレーの太い破線） */
+        /* 新しく「下げる」ピンの輪郭 */
         .pin-highlight-ring.ring-down {
             border: 3px dashed #193450;
-        }
-
-        @keyframes rotate-ring {
-            100% {
-                transform: translate(-50%, -50%) rotate(360deg);
-            }
         }
 
         .solve-arrow-svg {
@@ -356,17 +325,12 @@
         #solve-arrow-head path {
             fill: #fa5252;
             opacity: 0.8;
-            /* ★矢尻も55%の半透明にする */
         }
 
         /* 針の回転アニメーション用スタイル */
         .sub-clock line {
             transform-origin: 50px 50px;
             transition: transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
-        }
-
-        .no-transition line {
-            transition: none !important;
         }
     </style>
 </head>
@@ -457,7 +421,6 @@
             pins: { UL: false, UR: false, DL: false, DR: false },
             scrambleMoves: [],
             currentMoveIndex: -1,
-            // 【追加】解法シミュレーション用の状態管理変数
             currentSolveIndex: -1,
             currentSolveFace: 'F',
             solveAmounts: new Array(15).fill(0),
@@ -500,58 +463,27 @@
             { name: 'UR', left: '64%', top: '64%' },
         ];
 
+        // Wrap the common createClockSVG from clock-utils.js
         function createClockSVG(id, isFront) {
-            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-            svg.setAttribute("class", "sub-clock");
-            svg.setAttribute("id", `container-${id}`);
-            svg.setAttribute("viewBox", "0 0 100 100");
-
-            const cx = id[1], cy = id[2];
-            const isCorner = (cx === '0' || cx === '2') && (cy === '0' || cy === '2');
-            if (isCorner) {
-                svg.classList.add('clickable');
-                svg.onclick = () => handleManualRotate(id);
-            }
-
-            const borderStroke = isFront ? "#0288d1" : "#3f51b5";
-
-            svg.innerHTML = `
-                <circle cx="50" cy="50" r="45" fill="none" stroke="${borderStroke}" stroke-width="2"/>
-                <circle id="dot-${id}" cx="50" cy="12" r="3" fill="#f03e3e"/>
-                <g id="ticks-${id}"></g>
-                <line id="hand-${id}" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round"/>
-            `;
-            svg.innerHTML += `
-                <defs>
-                    <marker id="solve-arrow-head" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#fa5252"/>
-                    </marker>
-                </defs>
-            `;
-            return svg;
+            return ClockUtils.createClockSVG(id, {
+                isFront: isFront,
+                className: 'sub-clock',
+                isCornerClickable: true,
+                clickHandler: handleManualRotate
+            });
         }
 
+        // Wrap the common renderTicks from clock-utils.js
         function renderTicks(id, isFlipped) {
             const g = document.getElementById(`ticks-${id}`);
-            if (!g) return;
-            g.innerHTML = '';
-            const dotColor = "#495057";
-            const baseAngles = [30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
-
-            baseAngles.forEach(angle => {
-                const finalAngle = isFlipped ? (angle + 180) % 360 : angle;
-                const rad = (finalAngle - 90) * Math.PI / 180;
-                const cx = 50 + 38 * Math.cos(rad);
-                const cy = 50 + 38 * Math.sin(rad);
-                g.innerHTML += `<circle cx="${cx}" cy="${cy}" r="2" fill="${dotColor}"/>`;
-            });
+            ClockUtils.renderTicks(g, isFlipped);
         }
 
         function initBoards() {
             initDataState();
             buildDOMBoards();
             generateScrambleText();
-            renderSolutionHTML(); // 【追記】
+            renderSolutionHTML();
         }
 
         function buildDOMBoards() {
@@ -613,20 +545,16 @@
                 dot.setAttribute('cy', '12');
             }
 
-            const targetAngleBase = displayHour * 30;
             if (state.visualAngles === undefined) {
                 state.visualAngles = {};
             }
             if (state.visualAngles[id] === undefined) {
-                state.visualAngles[id] = targetAngleBase;
+                state.visualAngles[id] = displayHour * 30;
             }
 
-            let currentAngle = state.visualAngles[id];
-
-            if (instant) {
-                state.visualAngles[id] = targetAngleBase;
-                hand.style.transform = `rotate(${targetAngleBase}deg)`;
-            } else {
+            // Custom logic for the 180 degrees spin direction
+            const customDiffCalculator = (currentAngle, targetHour) => {
+                const targetAngleBase = targetHour * 30;
                 let diff = (targetAngleBase - currentAngle) % 360;
                 if (diff < -180) diff += 360;
                 if (diff > 180) diff -= 360;
@@ -634,23 +562,20 @@
                 if (Math.abs(diff) === 180) {
                     const isFrontFace = id[0] === 'F';
                     const isBeforeY2 = state.currentMoveIndex <= 8;
-                    let desiredDirection = 1;
-
-                    if (isBeforeY2) {
-                        desiredDirection = isFrontFace ? 1 : -1;
-                    } else {
-                        desiredDirection = isFrontFace ? -1 : 1;
-                    }
+                    let desiredDirection = isBeforeY2
+                        ? (isFrontFace ? 1 : -1)
+                        : (isFrontFace ? -1 : 1);
+                    
                     if (!isForward) {
                         desiredDirection = -desiredDirection;
                     }
                     diff = desiredDirection * 180;
                 }
+                return diff;
+            };
 
-                let newAngle = currentAngle + diff;
-                state.visualAngles[id] = newAngle;
-                hand.style.transform = `rotate(${newAngle}deg)`;
-            }
+            // Delegate to the shared updateHandAngle
+            ClockUtils.updateHandAngle(hand, state.visualAngles, id, displayHour, instant, customDiffCalculator);
 
             renderTicks(id, isBackAndX2);
         }
@@ -890,7 +815,6 @@
             backOps.forEach(op => { moves.push(`${op}${getRandomAmount()}`); });
 
             state.scrambleMoves = moves;
-            // 【追記】解法データの初期化
             resetSolveProgressState();
             state.solveAmounts.fill(0);
             moveFirst(true);
@@ -915,26 +839,24 @@
                 container.appendChild(span);
             });
         }
-        // 【新設】スクランブルが終端に達しているか否かで解法ボタンの有効・無効を一括制御する関数
-        function updateSolveButtonsState() {
-            // スクランブルが最後まで進んでいるかチェック (配列の最後のインデックスと一致しているか)
-            const isScrambleFinished = (state.currentMoveIndex === state.scrambleMoves.length);
 
-            // 解法コントロールエリア内のすべてのボタンを取得
+        function updateSolveButtonsState() {
+            const isScrambleFinished = (state.currentMoveIndex === state.scrambleMoves.length);
             const solveButtons = document.querySelectorAll('.solution-controls .btn-ctrl');
 
             solveButtons.forEach(btn => {
                 if (isScrambleFinished) {
-                    btn.disabled = false;     // 終端に達していれば有効化
-                    btn.style.opacity = '1';  // 通常表示
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
                     btn.style.cursor = 'pointer';
                 } else {
-                    btn.disabled = true;      // 終端に達していなければ無効化
-                    btn.style.opacity = '0.4'; // グレーアウト（半透明）
+                    btn.disabled = true;
+                    btn.style.opacity = '0.4';
                     btn.style.cursor = 'not-allowed';
                 }
             });
         }
+
         function applyMoveAt(index, isForward) {
             if (index < 0 || index >= state.scrambleMoves.length) return;
             const move = state.scrambleMoves[index];
@@ -1094,7 +1016,6 @@
             updateSolveButtonsState();
         }
 
-        // 【新設】解法テキストをクラス分けしてHTML描画する関数
         function renderSolutionHTML() {
             const container = document.querySelector('.solution-container');
             if (!container) return;
@@ -1113,26 +1034,19 @@
             });
         }
 
-        function initBoards() {
-            initDataState();
-            buildDOMBoards();
-            generateScrambleText();
-            renderSolutionHTML(); // 【追加】解法テキストの初期表示
-        }
         function resetSolveProgressState() {
             state.currentSolveIndex = -1;
             state.currentSolveFace = 'F';
 
-            // 解法用の矢印、ピン強調リング、ダイヤル円弧を一掃
             document.querySelectorAll('.pin-highlight-ring, .solve-arrow-svg, .arc-indicator').forEach(el => el.remove());
 
-            // テキストのハイライトとデバッグ表示を初期化
             renderSolutionHTML();
             const debugEl = document.getElementById('solve-debug');
             if (debugEl) {
                 debugEl.innerHTML = `DEBUG: [未開始] Face: F, X(Amount): -, Y(Pins): -, Z(Dial): -, F(Flip): -`;
             }
         }
+
         function updateCurrentSolveFace() {
             let y2Count = 0;
             for (let i = 0; i <= state.currentSolveIndex; i++) {
@@ -1141,6 +1055,7 @@
             }
             state.currentSolveFace = (y2Count % 2 === 1) ? 'B' : 'F';
         }
+
         function applySolveMoveAt(index, isForward) {
             if (index < 0 || index >= state.solveMoves.length) return;
             const move = state.solveMoves[index];
@@ -1232,6 +1147,7 @@
             else
                 document.querySelectorAll('.pin-highlight-ring, .solve-arrow-svg').forEach(el => el.remove());
         }
+
         function restoreSolvePinsForCurrentIndex() {
             if (state.currentSolveIndex >= 0 && state.currentSolveIndex < state.solveMoves.length) {
                 const move = state.solveMoves[state.currentSolveIndex];
@@ -1316,9 +1232,11 @@
             }
         }
 
+        // 最後の手順まで進む
         function solveLast() {
             while (state.currentSolveIndex < state.solveMoves.length - 1) solveNext();
         }
+
         function drawSolveVisuals(pinStr, targetCalc) {
             document.querySelectorAll('.pin-highlight-ring, .solve-arrow-svg').forEach(el => el.remove());
             const face = state.currentSolveFace;
