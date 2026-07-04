@@ -308,6 +308,57 @@
             color: #495057;
         }
 
+        /* 【追加】解法用のピン強調輪郭と時計矢印のスタイル */
+        .pin-highlight-ring {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            border-radius: 50% !important;
+            pointer-events: none;
+            z-index: 12;
+            transform: translate(-50%, -50%);
+        }
+
+        /* 新しく「上げる」ピンの輪郭（オレンジの太い実線） */
+        .pin-highlight-ring.ring-up {
+            border: 3px solid #ff922b;
+        }
+
+        /* 新しく「下げる」ピンの輪郭（グレーの太い破線） */
+        .pin-highlight-ring.ring-down {
+            border: 3px dashed #193450;
+        }
+
+        @keyframes rotate-ring {
+            100% {
+                transform: translate(-50%, -50%) rotate(360deg);
+            }
+        }
+
+        .solve-arrow-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 14;
+        }
+
+        .solve-arrow-line {
+            stroke: #fa5252;
+            stroke-width: 2;
+            stroke-linecap: round;
+            opacity: 0.8;
+            marker-end: url(#solve-arrow-head);
+        }
+
+        #solve-arrow-head path {
+            fill: #fa5252;
+            opacity: 0.8;
+            /* ★矢尻も55%の半透明にする */
+        }
+
         /* 針の回転アニメーション用スタイル */
         .sub-clock line {
             transform-origin: 50px 50px;
@@ -395,7 +446,7 @@
             15.C-&gt;12:UL,UR,DR,DL:UR</div>
         <div id="solve-debug"
             style="background: #fff5f5; border: 1px solid #ffa8a8; border-radius: 10px; padding: 10px; margin-bottom: 20px; font-family: monospace; font-size: 12px; text-align: left; color: #c92a2a; line-height: 1.4;">
-            DEBUG: [未開始] Face: -, X(Amount): -, Y(Pins): -, Z(Dial): -
+            DEBUG: [未開始] Face: F, X(Amount): -, Y(Pins): -, Z(Dial): -, F(Flip): -
         </div>
     </div>
 
@@ -406,13 +457,10 @@
             pins: { UL: false, UR: false, DL: false, DR: false },
             scrambleMoves: [],
             currentMoveIndex: -1,
-            // 【追加】解法の進捗インデックス（-1は開始前）
+            // 【追加】解法シミュレーション用の状態管理変数
             currentSolveIndex: -1,
-            // 【追加】各手順の実際の回転量（0〜11）を記憶する配列（全15手分）
-            solveAmounts: new Array(15).fill(0),
-            // 【追加】解法シミュレーション中の現在の基準面（初期値は 'F'）
             currentSolveFace: 'F',
-            // 【追加】固定の解法手順リスト
+            solveAmounts: new Array(15).fill(0),
             solveMoves: [
                 "DR/DR:C->U", "UL/UL:C->R", "UR/UR:C->L", "UL,UR/UL:C->D", "UL,UR,DR/UR:C->12",
                 "y2",
@@ -468,11 +516,18 @@
             const borderStroke = isFront ? "#0288d1" : "#3f51b5";
 
             svg.innerHTML = `
-            <circle cx="50" cy="50" r="45" fill="none" stroke="${borderStroke}" stroke-width="2"/>
-            <circle id="dot-${id}" cx="50" cy="12" r="3" fill="#f03e3e"/>
-            <g id="ticks-${id}"></g>
-            <line id="hand-${id}" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round"/>
-        `;
+                <circle cx="50" cy="50" r="45" fill="none" stroke="${borderStroke}" stroke-width="2"/>
+                <circle id="dot-${id}" cx="50" cy="12" r="3" fill="#f03e3e"/>
+                <g id="ticks-${id}"></g>
+                <line id="hand-${id}" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round"/>
+            `;
+            svg.innerHTML += `
+                <defs>
+                    <marker id="solve-arrow-head" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#fa5252"/>
+                    </marker>
+                </defs>
+            `;
             return svg;
         }
 
@@ -496,6 +551,7 @@
             initDataState();
             buildDOMBoards();
             generateScrambleText();
+            renderSolutionHTML(); // 【追記】
         }
 
         function buildDOMBoards() {
@@ -834,11 +890,13 @@
             backOps.forEach(op => { moves.push(`${op}${getRandomAmount()}`); });
 
             state.scrambleMoves = moves;
-            state.currentSolveIndex = -1; // 【追加】解法インデックスのリセット
-            state.solveAmounts.fill(0); // 【追加】保存された回転量を一斉に初期化
+            // 【追記】解法データの初期化
+            resetSolveProgressState();
+            state.solveAmounts.fill(0);
             moveFirst(true);
             moveLast(false);
-            renderSolutionHTML(); // 【追加】
+            renderSolutionHTML();
+            updateSolveButtonsState();
         }
 
         function renderScrambleHTML() {
@@ -857,7 +915,26 @@
                 container.appendChild(span);
             });
         }
+        // 【新設】スクランブルが終端に達しているか否かで解法ボタンの有効・無効を一括制御する関数
+        function updateSolveButtonsState() {
+            // スクランブルが最後まで進んでいるかチェック (配列の最後のインデックスと一致しているか)
+            const isScrambleFinished = (state.currentMoveIndex === state.scrambleMoves.length);
 
+            // 解法コントロールエリア内のすべてのボタンを取得
+            const solveButtons = document.querySelectorAll('.solution-controls .btn-ctrl');
+
+            solveButtons.forEach(btn => {
+                if (isScrambleFinished) {
+                    btn.disabled = false;     // 終端に達していれば有効化
+                    btn.style.opacity = '1';  // 通常表示
+                    btn.style.cursor = 'pointer';
+                } else {
+                    btn.disabled = true;      // 終端に達していなければ無効化
+                    btn.style.opacity = '0.4'; // グレーアウト（半透明）
+                    btn.style.cursor = 'not-allowed';
+                }
+            });
+        }
         function applyMoveAt(index, isForward) {
             if (index < 0 || index >= state.scrambleMoves.length) return;
             const move = state.scrambleMoves[index];
@@ -954,6 +1031,7 @@
         }
 
         function moveFirst(instant = false) {
+            resetSolveProgressState();
             if (instant) {
                 initDataState();
             } else {
@@ -969,9 +1047,14 @@
             renderScrambleHTML();
             renderAllDisplays(instant);
             updateArcDisplayForCurrentIndex();
+            updateSolveButtonsState();
         }
 
         function movePrev() {
+            if (state.currentSolveIndex >= 0) {
+                moveLast();
+            }
+            resetSolveProgressState();
             if (state.currentMoveIndex >= 0) {
                 applyMoveAt(state.currentMoveIndex, false);
                 state.currentMoveIndex--;
@@ -980,9 +1063,11 @@
                 renderAllDisplays(false, false);
                 updateArcDisplayForCurrentIndex();
             }
+            updateSolveButtonsState();
         }
 
         function moveNext() {
+            resetSolveProgressState();
             if (state.currentMoveIndex < state.scrambleMoves.length) {
                 state.currentMoveIndex++;
                 applyMoveAt(state.currentMoveIndex, true);
@@ -990,9 +1075,14 @@
                 renderAllDisplays(false, true);
                 updateArcDisplayForCurrentIndex();
             }
+            updateSolveButtonsState();
         }
 
         function moveLast(instant = false) {
+            if (state.currentSolveIndex >= 0) {
+                moveFirst();
+                resetSolveProgressState();
+            }
             while (state.currentMoveIndex < state.scrambleMoves.length) {
                 state.currentMoveIndex++;
                 applyMoveAt(state.currentMoveIndex, true);
@@ -1001,6 +1091,7 @@
             renderScrambleHTML();
             renderAllDisplays(instant);
             updateArcDisplayForCurrentIndex();
+            updateSolveButtonsState();
         }
 
         // 【新設】解法テキストをクラス分けしてHTML描画する関数
@@ -1008,19 +1099,16 @@
             const container = document.querySelector('.solution-container');
             if (!container) return;
             container.innerHTML = '';
-
             state.solveMoves.forEach((move, index) => {
                 const span = document.createElement('span');
                 span.style.display = 'block';
                 span.innerText = `${index + 1}.${move}`;
-
-                if (index < state.currentSolveIndex) {
+                if (index < state.currentSolveIndex)
                     span.className = 'move-item done';
-                } else if (index === state.currentSolveIndex) {
+                else if (index === state.currentSolveIndex)
                     span.className = 'move-item current';
-                } else {
+                else
                     span.className = 'move-item pending';
-                }
                 container.appendChild(span);
             });
         }
@@ -1031,28 +1119,37 @@
             generateScrambleText();
             renderSolutionHTML(); // 【追加】解法テキストの初期表示
         }
-        // 【新設】現在の手順位置から、基準面(FかB)を一意に正しく決定する関数
+        function resetSolveProgressState() {
+            state.currentSolveIndex = -1;
+            state.currentSolveFace = 'F';
+
+            // 解法用の矢印、ピン強調リング、ダイヤル円弧を一掃
+            document.querySelectorAll('.pin-highlight-ring, .solve-arrow-svg, .arc-indicator').forEach(el => el.remove());
+
+            // テキストのハイライトとデバッグ表示を初期化
+            renderSolutionHTML();
+            const debugEl = document.getElementById('solve-debug');
+            if (debugEl) {
+                debugEl.innerHTML = `DEBUG: [未開始] Face: F, X(Amount): -, Y(Pins): -, Z(Dial): -, F(Flip): -`;
+            }
+        }
         function updateCurrentSolveFace() {
             let y2Count = 0;
             for (let i = 0; i <= state.currentSolveIndex; i++) {
-                if (state.solveMoves[i] === 'y2') {
+                if (state.solveMoves[i] === 'y2')
                     y2Count++;
-                }
             }
-            // y2の通過回数が奇数なら裏面('B')、偶数なら表面('F')
             state.currentSolveFace = (y2Count % 2 === 1) ? 'B' : 'F';
         }
         function applySolveMoveAt(index, isForward) {
             if (index < 0 || index >= state.solveMoves.length) return;
             const move = state.solveMoves[index];
-
-            // 先に現在の正しい面に更新する
             updateCurrentSolveFace();
-            const face = state.currentSolveFace; // 現在の面を取得
+            const face = state.currentSolveFace;
 
             if (move === 'y2') {
-                drawArcIndicators([]); // 円弧のみを消去
-
+                document.querySelectorAll('.pin-highlight-ring, .solve-arrow-svg').forEach(el => el.remove());
+                document.querySelectorAll('.arc-indicator').forEach(el => el.remove());
                 const debugEl = document.getElementById('solve-debug');
                 if (debugEl) {
                     debugEl.innerHTML = `DEBUG: [手順 ${index + 1}]<br>` +
@@ -1067,23 +1164,16 @@
 
             const mainParts = move.split(':');
             if (mainParts.length !== 2) return;
-
             const leftSide = mainParts[0];
             const targetCalc = mainParts[1];
-
             const leftParts = leftSide.split('/');
             if (leftParts.length !== 2) return;
-
             const pinStr = leftParts[0];
             const dialStr = leftParts[1];
 
-            // 1. 基準面（F/B）に応じたピンの自動同期
             const upPins = pinStr.split(',');
-
             if (face === 'F') {
-                Object.keys(state.pins).forEach(p => {
-                    state.pins[p] = upPins.includes(p);
-                });
+                Object.keys(state.pins).forEach(p => { state.pins[p] = upPins.includes(p); });
             } else {
                 const y2Map = { 'UL': 'UR', 'UR': 'UL', 'DL': 'DR', 'DR': 'DL' };
                 Object.keys(state.pins).forEach(p => state.pins[p] = true);
@@ -1093,23 +1183,18 @@
                 });
             }
 
-            // 2. 現在の解法基準面に応じた時計・ダイヤルマッピング
             const clockMap = {
                 'UL': `${face}00`, 'U': `${face}10`, 'UR': `${face}20`,
                 'L': `${face}01`, 'C': `${face}11`, 'R': `${face}21`,
                 'DL': `${face}02`, 'D': `${face}12`, 'DR': `${face}22`
             };
-            const dialMap = {
-                'UL': `${face}00`, 'UR': `${face}20`, 'DL': `${face}02`, 'DR': `${face}22`
-            };
+            const dialMap = { 'UL': `${face}00`, 'UR': `${face}20`, 'DL': `${face}02`, 'DR': `${face}22` };
 
             let amount = 0;
-
             if (isForward) {
                 const calcMatch = targetCalc.match(/^C->(.+)$/);
                 if (!calcMatch) return;
                 const targetName = calcMatch[1];
-
                 const currentC = state.clocks[`${face}11`];
                 if (targetName === '12') {
                     amount = (12 - currentC) % 12;
@@ -1125,11 +1210,8 @@
             }
 
             const axisId = dialMap[dialStr];
-            if (axisId) {
-                rotateEngine(axisId, amount);
-            }
+            if (axisId) rotateEngine(axisId, amount);
 
-            // 【修正】通常手順のときは F (Flip) : なし を出力
             const debugEl = document.getElementById('solve-debug');
             if (debugEl) {
                 debugEl.innerHTML = `DEBUG: [手順 ${index + 1}]<br>` +
@@ -1140,44 +1222,23 @@
                     `• <b>F (Flip)</b> : なし`;
             }
 
-            if (axisId) {
+            if (axisId)
                 drawArcIndicators([axisId]);
-            } else {
+            else
                 drawArcIndicators([]);
-            }
+
+            if (move !== 'y2')
+                drawSolveVisuals(pinStr, targetCalc);
+            else
+                document.querySelectorAll('.pin-highlight-ring, .solve-arrow-svg').forEach(el => el.remove());
         }
-        function solveFirst() {
-            const savedMoves = [...state.scrambleMoves];
-            const savedCurrentScramble = state.currentMoveIndex;
-
-            moveFirst(true);
-            state.scrambleMoves = savedMoves;
-            while (state.currentMoveIndex < savedCurrentScramble) {
-                moveNext();
-            }
-
-            state.currentSolveIndex = -1;
-            state.currentSolveFace = 'F';
-            renderSolutionHTML();
-            renderAllDisplays(false);
-
-            const debugEl = document.getElementById('solve-debug');
-            if (debugEl) {
-                // 初期表示にも F (Flip) を追加
-                debugEl.innerHTML = `DEBUG: [未開始] Face: F, X(Amount): -, Y(Pins): -, Z(Dial): -, F(Flip): -`;
-            }
-        }
-        // 【新設】現在の解法インデックスの文字列からピン状態をクリーンに復元する関数
         function restoreSolvePinsForCurrentIndex() {
             if (state.currentSolveIndex >= 0 && state.currentSolveIndex < state.solveMoves.length) {
                 const move = state.solveMoves[state.currentSolveIndex];
-                // 【修正】戻り先が y2 のステップだった場合も、ピンを強制クリアせずそのままにする
                 if (move === 'y2') {
                     document.querySelectorAll('.arc-indicator').forEach(el => el.remove());
-                    return; // ピンのクリア処理を削除して維持
+                    return;
                 }
-
-                // 【修正】新記法に合わせたピン抽出処理
                 const mainParts = move.split(':');
                 if (mainParts.length === 2) {
                     const leftSide = mainParts[0];
@@ -1186,11 +1247,8 @@
                         const pinStr = leftParts[0];
                         const upPins = pinStr.split(',');
                         const face = state.currentSolveFace;
-
                         if (face === 'F') {
-                            Object.keys(state.pins).forEach(p => {
-                                state.pins[p] = upPins.includes(p);
-                            });
+                            Object.keys(state.pins).forEach(p => { state.pins[p] = upPins.includes(p); });
                         } else {
                             const y2Map = { 'UL': 'UR', 'UR': 'UL', 'DL': 'DR', 'DR': 'DL' };
                             Object.keys(state.pins).forEach(p => state.pins[p] = true);
@@ -1205,35 +1263,44 @@
             }
             Object.keys(state.pins).forEach(p => state.pins[p] = false);
         }
+
+        function solveFirst() {
+            const savedMoves = [...state.scrambleMoves];
+            const savedCurrentScramble = state.currentMoveIndex;
+            moveFirst(true);
+            state.scrambleMoves = savedMoves;
+            while (state.currentMoveIndex < savedCurrentScramble) moveNext();
+            state.currentSolveIndex = -1;
+            state.currentSolveFace = 'F';
+            renderSolutionHTML();
+            renderAllDisplays(false);
+            document.querySelectorAll('.pin-highlight-ring, .solve-arrow-svg').forEach(el => el.remove());
+            const debugEl = document.getElementById('solve-debug');
+            if (debugEl) debugEl.innerHTML = `DEBUG: [未開始] Face: F, X(Amount): -, Y(Pins): -, Z(Dial): -, F(Flip): -`;
+        }
+
         function solvePrev() {
             if (state.currentSolveIndex >= 0) {
-                // 1. 現在の手順を「逆回転」で実行して時計の針を戻す
                 applySolveMoveAt(state.currentSolveIndex, false);
-
-                // 2. 解法の手順インデックスを1つ戻す
                 state.currentSolveIndex--;
-
-                // 【追加】戻った直後のインデックス位置で基準面を再確定
                 updateCurrentSolveFace();
-
-                // 3. 戻った先（1手前）の手順に合わせた正しいピン状態を完全に復元する
                 restoreSolvePinsForCurrentIndex();
-
-                // 4. 戻った先の手順のダイヤルに円弧表示を更新する
                 if (state.currentSolveIndex >= 0) {
                     const backupAmounts = [...state.solveAmounts];
                     applySolveMoveAt(state.currentSolveIndex, true);
                     applySolveMoveAt(state.currentSolveIndex, false);
                     state.solveAmounts = backupAmounts;
+                    const curMove = state.solveMoves[state.currentSolveIndex];
+                    if (curMove !== 'y2') {
+                        const parts = curMove.split(':');
+                        drawSolveVisuals(parts[0].split('/')[0], parts[1]);
+                    }
                 } else {
                     drawArcIndicators([]);
-                    // 開始前に戻ったときはデバッグ表示も初期化
+                    document.querySelectorAll('.pin-highlight-ring, .solve-arrow-svg').forEach(el => el.remove());
                     const debugEl = document.getElementById('solve-debug');
-                    if (debugEl) {
-                        debugEl.innerHTML = `DEBUG: [未開始] Face: F, X(Amount): -, Y(Pins): -, Z(Dial): -`;
-                    }
+                    if (debugEl) debugEl.innerHTML = `DEBUG: [未開始] Face: F, X(Amount): -, Y(Pins): -, Z(Dial): -, F(Flip): -`;
                 }
-
                 renderSolutionHTML();
                 renderAllDisplays(false, false);
             }
@@ -1242,10 +1309,7 @@
         function solveNext() {
             if (state.currentSolveIndex < state.solveMoves.length - 1) {
                 state.currentSolveIndex++;
-
-                // 【追加】進んだ直後のインデックス位置で基準面を再確定
                 updateCurrentSolveFace();
-
                 applySolveMoveAt(state.currentSolveIndex, true);
                 renderSolutionHTML();
                 renderAllDisplays(false, true);
@@ -1253,11 +1317,96 @@
         }
 
         function solveLast() {
-            while (state.currentSolveIndex < state.solveMoves.length - 1) {
-                solveNext();
+            while (state.currentSolveIndex < state.solveMoves.length - 1) solveNext();
+        }
+        function drawSolveVisuals(pinStr, targetCalc) {
+            document.querySelectorAll('.pin-highlight-ring, .solve-arrow-svg').forEach(el => el.remove());
+            const face = state.currentSolveFace;
+            const board = document.getElementById(face === 'F' ? 'board-front' : 'board-back');
+            if (!board) return;
+
+            const upPins = pinStr ? pinStr.split(',') : [];
+            const isBack = (face === 'B');
+
+            const currentLogicalPins = { UL: false, UR: false, DL: false, DR: false };
+            upPins.forEach(p => currentLogicalPins[p] = true);
+
+            const prevLogicalPins = { UL: false, UR: false, DL: false, DR: false };
+            if (state.currentSolveIndex > 0) {
+                const prevMove = state.solveMoves[state.currentSolveIndex - 1];
+                if (prevMove !== 'y2') {
+                    const prevParts = prevMove.split(':');
+                    if (prevParts.length === 2) {
+                        const prevUpStr = prevParts[0].split('/')[0];
+                        prevUpStr.split(',').forEach(p => { if (p) prevLogicalPins[p] = true; });
+                    }
+                }
+            }
+
+            const changedPins = [];
+            Object.keys(currentLogicalPins).forEach(p => {
+                if (currentLogicalPins[p] !== prevLogicalPins[p]) changedPins.push(p);
+            });
+
+            const physicalPinPos = {
+                'UL': ['36%', '36%'], 'UR': ['64%', '36%'], 'DL': ['36%', '64%'], 'DR': ['64%', '64%']
+            };
+
+            changedPins.forEach(p => {
+                const pos = physicalPinPos[p];
+                if (!pos) return;
+                const ring = document.createElement('div');
+                const isNowUp = currentLogicalPins[p];
+                ring.className = `pin-highlight-ring ${isNowUp ? 'ring-up' : 'ring-down'}`;
+                ring.style.left = pos[0];
+                ring.style.top = pos[1];
+                board.appendChild(ring);
+            });
+
+            const calcMatch = targetCalc ? targetCalc.match(/^C->(.+)$/) : null;
+            if (!calcMatch) return;
+            const targetName = calcMatch[1];
+
+            const physicalClockCoord = {
+                'UL': [22, 22], 'U': [50, 22], 'UR': [78, 22],
+                'L': [22, 50], 'C': [50, 50], 'R': [78, 50],
+                'DL': [22, 78], 'D': [50, 78], 'DR': [78, 78]
+            };
+
+            const startPtRaw = physicalClockCoord['C'];
+            let startPt = [startPtRaw[0], startPtRaw[1]];
+            let endPt = null;
+            const startMargin = 3;
+
+            if (targetName === '12') {
+                endPt = [startPt[0], startPt[1] - 14];
+            } else {
+                const rawEnd = physicalClockCoord[targetName];
+                if (rawEnd) {
+                    const dx = rawEnd[0] - startPtRaw[0];
+                    const dy = rawEnd[1] - startPtRaw[1];
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    startPt = [startPtRaw[0] + (dx / len) * startMargin, startPtRaw[1] + (dy / len) * startMargin];
+                    const endMargin = 3;
+                    endPt = [rawEnd[0] - (dx / len) * endMargin, rawEnd[1] - (dy / len) * endMargin];
+                }
+            }
+
+            if (startPt && endPt) {
+                const svgNS = "http://www.w3.org/2000/svg";
+                const arrowSvg = document.createElementNS(svgNS, "svg");
+                arrowSvg.setAttribute("class", "solve-arrow-svg");
+                arrowSvg.setAttribute("viewBox", "0 0 100 100");
+                const line = document.createElementNS(svgNS, "line");
+                line.setAttribute("class", "solve-arrow-line");
+                line.setAttribute("x1", `${startPt[0]}%`);
+                line.setAttribute("y1", `${startPt[1]}%`);
+                line.setAttribute("x2", `${endPt[0]}%`);
+                line.setAttribute("y2", `${endPt[1]}%`);
+                arrowSvg.appendChild(line);
+                board.appendChild(arrowSvg);
             }
         }
-
         initBoards();
     </script>
 </body>
