@@ -1392,9 +1392,9 @@
             });
 
             const physicalClockCoord = {
-                'UL': [22, 22], 'U': [50, 22], 'UR': [78, 22],
-                'L': [22, 50], 'C': [50, 50], 'R': [78, 50],
-                'DL': [22, 78], 'D': [50, 78], 'DR': [78, 78]
+                'UL': [21, 21], 'U': [50, 21], 'UR': [79, 21],
+                'L': [21, 50], 'C': [50, 50], 'R': [79, 50],
+                'DL': [21, 79], 'D': [50, 79], 'DR': [79, 79]
             };
 
             // 操作リスト(ops)をループして複数の矢印を描画
@@ -1402,46 +1402,42 @@
                 const opParts = op.split(':');
                 if (opParts.length !== 2) return;
                 const targetCalc = opParts[1];
-
                 const calcMatch = targetCalc.match(/^(.+)->(.+)$/);
                 if (!calcMatch) return;
-                const targetName = calcMatch[1];
-                const destName = calcMatch[2];
 
-                // 始点の見た目上の位置を計算
-                let visualStart = targetName;
-                if (isBack && state.flipMode === 'x2') visualStart = x2Rotate[targetName];
-                const startPtRaw = physicalClockCoord[visualStart] || physicalClockCoord['C'];
+                const startName = calcMatch[1]; // UL など
+                const endName = calcMatch[2];   // L など
 
-                let startPt = [startPtRaw[0], startPtRaw[1]];
-                let endPt = null;
-                const startMargin = 3;
-
-                if (destName === '12') {
-                    if (isBack && state.flipMode === 'x2') {
-                        startPt = [startPtRaw[0], startPtRaw[1] + startMargin];
-                        endPt = [startPt[0], startPt[1] + 14];
-                    } else {
-                        startPt = [startPtRaw[0], startPtRaw[1] - startMargin];
-                        endPt = [startPt[0], startPt[1] - 14];
-                    }
-                } else {
-                    let visualDest = destName;
-                    if (isBack && state.flipMode === 'x2') visualDest = x2Rotate[destName];
-                    const rawEnd = physicalClockCoord[visualDest];
-                    if (rawEnd) {
-                        const dx = rawEnd[0] - startPtRaw[0];
-                        const dy = rawEnd[1] - startPtRaw[1];
-                        const len = Math.sqrt(dx * dx + dy * dy);
-                        if (len > 0) {
-                            startPt = [startPtRaw[0] + (dx / len) * startMargin, startPtRaw[1] + (dy / len) * startMargin];
-                            const endMargin = 3;
-                            endPt = [rawEnd[0] - (dx / len) * endMargin, rawEnd[1] - (dy / len) * endMargin];
-                        }
-                    }
+                // 物理位置の取得（x2モード等の反転を考慮）
+                let vStart = startName;
+                let vEnd = endName;
+                if (isBack && state.flipMode === 'x2') {
+                    vStart = x2Rotate[startName] || startName;
+                    vEnd = x2Rotate[endName] || endName;
                 }
 
-                if (startPt && endPt) {
+                const rawStart = physicalClockCoord[vStart];
+                const rawEnd = physicalClockCoord[vEnd];
+
+                if (rawStart && rawEnd) {
+                    // 始点と終点のベクトル計算
+                    const dx = rawEnd[0] - rawStart[0];
+                    const dy = rawEnd[1] - rawStart[1];
+                    const len = Math.sqrt(dx * dx + dy * dy);
+
+                    // 【修正】各時計の中心から、相手方向へ向かって「指定マージン分」だけずらす
+                    const startMargin = 3; // 矢印の開始と終了の余白（%単位）
+                    const endMargin = 4; // 矢印の開始と終了の余白（%単位）
+
+                    const startPt = [
+                        rawStart[0] + (dx / len) * startMargin,
+                        rawStart[1] + (dy / len) * startMargin
+                    ];
+                    const endPt = [
+                        rawEnd[0] - (dx / len) * endMargin,
+                        rawEnd[1] - (dy / len) * endMargin
+                    ];
+
                     const svgNS = "http://www.w3.org/2000/svg";
                     const arrowSvg = document.createElementNS(svgNS, "svg");
                     arrowSvg.setAttribute("class", "solve-arrow-svg");
