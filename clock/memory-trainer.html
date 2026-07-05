@@ -304,6 +304,27 @@
             border: 3px dashed #193450;
         }
 
+        /* 【追加】解法選択ドロップダウンのスタイル */
+        .solve-method-selector {
+            margin: 15px 0 10px 0;
+            text-align: center;
+        }
+
+        .solve-method-selector select {
+            padding: 6px 12px;
+            font-size: 14px;
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+            background-color: white;
+            cursor: pointer;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .solve-method-selector select:hover {
+            border-color: #aeb5bc;
+        }
+
         .solve-arrow-svg {
             position: absolute;
             top: 0;
@@ -386,6 +407,13 @@
                     text-anchor="middle">x2</text>
             </svg>
         </div>
+        <div class="solve-method-selector">
+            <label for="solve-method" style="font-size: 14px; color: #495057; font-weight: bold;">解法: </label>
+            <select id="solve-method" onchange="changeSolveMethod(this.value)">
+                <option value="flip">Flip</option>
+                <option value="10mm">10MM (10 Moves Memoless)</option>
+            </select>
+        </div>
         <div class="solution-controls">
             <button class="btn-ctrl" onclick="solveFirst()">|◀</button>
             <button class="btn-ctrl" onclick="solvePrev()">◀</button>
@@ -415,6 +443,20 @@
     </div>
 
     <script>
+        const SOLVE_METHODS = {
+            'flip': [
+                "DR/DR:C->U", "UL/UL:C->R", "UR/UR:C->L", "UL,UR/UL:C->D", "UL,UR,DR/UR:C->12",
+                "y2",
+                "DR/DR:C->U", "UL/UL:C->R", "UR/UR:C->L", "UL,UR/UL:C->D", "UL,UR,DR/UR:C->DL",
+                "UL,UR,DL/UL:C->DR", "UR,DR,DL/UR:C->UL", "UL,DR,DL/UL:C->UR", "UL,UR,DR,DL/UR:C->12"
+            ],
+            '10mm': [
+                "DR/UL:UL->L/DR:C->U", "UL/UL:C->R", "UR/UR:C->L", "UL,UR/UR:C->D",
+                "x2",
+                "DR/UL:UL->L/DR:C->U", "UL/UL:C->R/DR:DR->D", "UR/UR:C->L", "UL,UR/UL:C->D", "UL,UR,DR/UR:UR->DL",
+                "UL,DR/UL:C->12/UR:UR->12"
+            ]
+        };
         const state = {
             clocks: {},
             flipMode: 'y2',
@@ -423,14 +465,12 @@
             currentMoveIndex: -1,
             currentSolveIndex: -1,
             currentSolveFace: 'F',
-            solveAmounts: new Array(15).fill(0),
-            solveMoves: [
-                "DR/DR:C->U", "UL/UL:C->R", "UR/UR:C->L", "UL,UR/UL:C->D", "UL,UR,DR/UR:C->12",
-                "y2",
-                "DR/DR:C->U", "UL/UL:C->R", "UR/UR:C->L", "UL,UR/UL:C->D", "UL,UR,DR/UR:C->DL",
-                "UL,UR,DL/UL:C->DR", "UR,DR,DL/UR:C->UL", "UL,DR,DL/UL:C->UR", "UL,UR,DR,DL/UR:C->12"
-            ]
+            solveAmounts: [],
+            solveMoves: []
         };
+        state.solveMoves = SOLVE_METHODS['flip'];
+        // 複数操作の保存に対応するため、配列の配列として初期化
+        state.solveAmounts = new Array(state.solveMoves.length).fill(null).map(() => []);
 
         function initDataState() {
             state.visualAngles = {};
@@ -626,15 +666,20 @@
                 el.className = `pin-btn ${isUpOnBack ? 'up' : 'down'}`;
             });
         }
-
         function drawArcIndicators(clockIds) {
             document.querySelectorAll('.arc-indicator').forEach(el => el.remove());
             if (!clockIds || clockIds.length === 0) return;
 
             clockIds.forEach(clockId => {
                 const face = clockId[0];
-                const cx = clockId[1];
-                const cy = clockId[2];
+                let cx = clockId[1];
+                let cy = clockId[2];
+
+                // x2モードの裏面は、y2モードからさらに180度回転して画面に描画されているため、座標を反転
+                if (face === 'B' && state.flipMode === 'x2') {
+                    cx = cx === '0' ? '2' : '0';
+                    cy = cy === '0' ? '2' : '0';
+                }
 
                 const posX = cx === '0' ? '18%' : '82%';
                 const posY = cy === '0' ? '18%' : '82%';
@@ -705,7 +750,6 @@
             }
             drawArcIndicators(arcs);
         }
-
         function setFlipMode(mode) {
             state.flipMode = mode;
 
@@ -722,6 +766,33 @@
 
             buildDOMBoards();
             renderAllDisplays(true);
+
+            // スクランブル進行中のダイヤル円弧を再描画
+            updateArcDisplayForCurrentIndex();
+            // （setFlipMode 内の後半部分）
+            if (state.currentSolveIndex >= 0) {
+                const move = state.solveMoves[state.currentSolveIndex];
+                if (move === 'y2' || move === 'x2') {
+                    applySolveMoveAt(state.currentSolveIndex, true);
+                } else {
+                    const mainParts = move.split('/');
+                    if (mainParts.length >= 2) {
+                        const pinStr = mainParts[0];
+                        const ops = mainParts.slice(1);
+
+                        drawSolveVisuals(pinStr, ops);
+
+                        const face = state.currentSolveFace;
+                        const dialMap = { 'UL': `${face}00`, 'UR': `${face}20`, 'DL': `${face}02`, 'DR': `${face}22` };
+                        const axisIds = [];
+                        ops.forEach(op => {
+                            const dialStr = op.split(':')[0];
+                            if (dialMap[dialStr]) axisIds.push(dialMap[dialStr]);
+                        });
+                        drawArcIndicators(axisIds);
+                    }
+                }
+            }
         }
 
         function toggleFlipModeSwitch() {
@@ -1033,6 +1104,30 @@
                 container.appendChild(span);
             });
         }
+        // 【修正】解法を切り替えた際、時計の針をスクランブル直後（0手目）に完全リセットする
+        function changeSolveMethod(methodKey) {
+            state.solveMoves = SOLVE_METHODS[methodKey] || SOLVE_METHODS['flip'];
+
+            // 1手の中に複数の操作（左手・右手など）が含まれるため、回転量を記憶する配列を二次元配列として初期化
+            state.solveAmounts = new Array(state.solveMoves.length).fill(null).map(() => []);
+
+            // もし解法が途中で進んでいたら、盤面の時計の針を「スクランブル直後の状態」に物理的に戻す
+            if (state.currentSolveIndex >= 0) {
+                initDataState();
+                state.currentMoveIndex = -1;
+                while (state.currentMoveIndex < state.scrambleMoves.length) {
+                    state.currentMoveIndex++;
+                    applyMoveAt(state.currentMoveIndex, true);
+                }
+            }
+
+            // 解法の進捗（インデックスや矢印、ハイライトなど）を完全にリセット
+            resetSolveProgressState();
+
+            // 盤面とボタンの有効状態を更新して再描画
+            renderAllDisplays(false);
+            updateSolveButtonsState();
+        }
 
         function resetSolveProgressState() {
             state.currentSolveIndex = -1;
@@ -1048,43 +1143,37 @@
         }
 
         function updateCurrentSolveFace() {
-            let y2Count = 0;
+            let flipCount = 0;
+            // 手順を一つずつ見て、y2 または x2 が出るたびに面を反転させる
             for (let i = 0; i <= state.currentSolveIndex; i++) {
-                if (state.solveMoves[i] === 'y2')
-                    y2Count++;
+                const move = state.solveMoves[i];
+                if (move === 'y2' || move === 'x2') {
+                    flipCount++;
+                }
             }
-            state.currentSolveFace = (y2Count % 2 === 1) ? 'B' : 'F';
+            // flipCount が奇数なら裏面(B)、偶数なら表面(F)
+            state.currentSolveFace = (flipCount % 2 === 1) ? 'B' : 'F';
         }
-
         function applySolveMoveAt(index, isForward) {
             if (index < 0 || index >= state.solveMoves.length) return;
             const move = state.solveMoves[index];
             updateCurrentSolveFace();
             const face = state.currentSolveFace;
 
-            if (move === 'y2') {
-                document.querySelectorAll('.pin-highlight-ring, .solve-arrow-svg').forEach(el => el.remove());
-                document.querySelectorAll('.arc-indicator').forEach(el => el.remove());
+            if (move === 'y2' || move === 'x2') {
+                document.querySelectorAll('.arc-indicator, .pin-highlight-ring, .solve-arrow-svg').forEach(el => el.remove());
                 const debugEl = document.getElementById('solve-debug');
                 if (debugEl) {
-                    debugEl.innerHTML = `DEBUG: [手順 ${index + 1}]<br>` +
-                        `• <b>currentSolveFace</b> : ${face}<br>` +
-                        `• <b>X (Amount)</b> : 0 (記憶: 0)<br>` +
-                        `• <b>Y (Pins)</b> : なし<br>` +
-                        `• <b>Z (Dial)</b> : なし<br>` +
-                        `• <b>F (Flip)</b> : y2`;
+                    debugEl.innerHTML = `DEBUG: [手順 ${index + 1}]<br>• <b>currentSolveFace</b> : ${face}<br>• <b>F (Flip)</b> : ${move}`;
                 }
                 return;
             }
 
-            const mainParts = move.split(':');
-            if (mainParts.length !== 2) return;
-            const leftSide = mainParts[0];
-            const targetCalc = mainParts[1];
-            const leftParts = leftSide.split('/');
-            if (leftParts.length !== 2) return;
-            const pinStr = leftParts[0];
-            const dialStr = leftParts[1];
+            // 新ルール: [上げるピン] / [操作1] / [操作2] ...
+            const mainParts = move.split('/');
+            if (mainParts.length < 2) return;
+            const pinStr = mainParts[0];
+            const ops = mainParts.slice(1); // ["UL:UL->L", "DR:C->U"] など
 
             const upPins = pinStr.split(',');
             if (face === 'F') {
@@ -1105,53 +1194,70 @@
             };
             const dialMap = { 'UL': `${face}00`, 'UR': `${face}20`, 'DL': `${face}02`, 'DR': `${face}22` };
 
-            let amount = 0;
             if (isForward) {
-                const calcMatch = targetCalc.match(/^C->(.+)$/);
-                if (!calcMatch) return;
-                const targetName = calcMatch[1];
-                const currentC = state.clocks[`${face}11`];
-                if (targetName === '12') {
-                    amount = (12 - currentC) % 12;
-                } else {
-                    const targetClockId = clockMap[targetName];
-                    const currentTarget = state.clocks[targetClockId];
-                    amount = (currentTarget - currentC + 12) % 12;
-                }
-                state.solveAmounts[index] = amount;
-            } else {
-                const savedAmount = state.solveAmounts[index] || 0;
-                amount = (12 - savedAmount) % 12;
+                state.solveAmounts[index] = [];
             }
 
-            const axisId = dialMap[dialStr];
-            if (axisId) rotateEngine(axisId, amount);
+            const debugOpLines = [];
+            const axisIds = [];
+
+            // 戻る時は、後で実行した操作から順番に逆回転させる
+            const opList = isForward ? ops : [...ops].reverse();
+
+            opList.forEach((op, loopIdx) => {
+                const opIdx = isForward ? loopIdx : ops.length - 1 - loopIdx;
+                const opParts = op.split(':');
+                if (opParts.length !== 2) return;
+                const dialStr = opParts[0];
+                const targetCalc = opParts[1];
+
+                let amount = 0;
+                if (isForward) {
+                    const calcMatch = targetCalc.match(/^(.+)->(.+)$/);
+                    if (calcMatch) {
+                        const targetName = calcMatch[1];
+                        const destName = calcMatch[2];
+
+                        const currentTarget = state.clocks[clockMap[targetName]] || 0;
+                        if (destName === '12') {
+                            amount = (12 - currentTarget) % 12;
+                        } else {
+                            const currentDest = state.clocks[clockMap[destName]] || 0;
+                            amount = (currentDest - currentTarget + 12) % 12;
+                        }
+                    }
+                    state.solveAmounts[index][opIdx] = amount;
+                } else {
+                    const savedAmount = state.solveAmounts[index] ? state.solveAmounts[index][opIdx] || 0 : 0;
+                    amount = (12 - savedAmount) % 12;
+                }
+
+                const axisId = dialMap[dialStr];
+                if (axisId) {
+                    rotateEngine(axisId, amount);
+                    axisIds.push(axisId);
+                }
+
+                debugOpLines[opIdx] = `• <b>Z (Dial)</b> : ${dialStr} (物理軸: ${axisId}) ➔ <b>X</b> : ${amount > 0 ? '+' + amount : amount} (記憶: ${state.solveAmounts[index] ? state.solveAmounts[index][opIdx] : 0})`;
+            });
 
             const debugEl = document.getElementById('solve-debug');
             if (debugEl) {
                 debugEl.innerHTML = `DEBUG: [手順 ${index + 1}]<br>` +
                     `• <b>currentSolveFace</b> : ${face}<br>` +
-                    `• <b>X (Amount)</b> : ${amount > 0 ? '+' + amount : amount} (記憶: ${state.solveAmounts[index]})<br>` +
                     `• <b>Y (Pins)</b> : ${pinStr}<br>` +
-                    `• <b>Z (Dial)</b> : ${dialStr} (物理軸: ${axisId})<br>` +
+                    debugOpLines.join('<br>') + `<br>` +
                     `• <b>F (Flip)</b> : なし`;
             }
 
-            if (axisId)
-                drawArcIndicators([axisId]);
-            else
-                drawArcIndicators([]);
-
-            if (move !== 'y2')
-                drawSolveVisuals(pinStr, targetCalc);
-            else
-                document.querySelectorAll('.pin-highlight-ring, .solve-arrow-svg').forEach(el => el.remove());
+            drawArcIndicators(axisIds);
+            drawSolveVisuals(pinStr, ops);
         }
 
         function restoreSolvePinsForCurrentIndex() {
             if (state.currentSolveIndex >= 0 && state.currentSolveIndex < state.solveMoves.length) {
                 const move = state.solveMoves[state.currentSolveIndex];
-                if (move === 'y2') {
+                if (move === 'y2' || move === 'x2') {
                     document.querySelectorAll('.arc-indicator').forEach(el => el.remove());
                     return;
                 }
@@ -1207,9 +1313,9 @@
                     applySolveMoveAt(state.currentSolveIndex, false);
                     state.solveAmounts = backupAmounts;
                     const curMove = state.solveMoves[state.currentSolveIndex];
-                    if (curMove !== 'y2') {
-                        const parts = curMove.split(':');
-                        drawSolveVisuals(parts[0].split('/')[0], parts[1]);
+                    if (curMove !== 'y2' && curMove !== 'x2') {
+                        const mainParts = curMove.split('/');
+                        drawSolveVisuals(mainParts[0], mainParts.slice(1));
                     }
                 } else {
                     drawArcIndicators([]);
@@ -1236,8 +1342,7 @@
         function solveLast() {
             while (state.currentSolveIndex < state.solveMoves.length - 1) solveNext();
         }
-
-        function drawSolveVisuals(pinStr, targetCalc) {
+        function drawSolveVisuals(pinStr, ops) {
             document.querySelectorAll('.pin-highlight-ring, .solve-arrow-svg').forEach(el => el.remove());
             const face = state.currentSolveFace;
             const board = document.getElementById(face === 'F' ? 'board-front' : 'board-back');
@@ -1252,10 +1357,10 @@
             const prevLogicalPins = { UL: false, UR: false, DL: false, DR: false };
             if (state.currentSolveIndex > 0) {
                 const prevMove = state.solveMoves[state.currentSolveIndex - 1];
-                if (prevMove !== 'y2') {
-                    const prevParts = prevMove.split(':');
-                    if (prevParts.length === 2) {
-                        const prevUpStr = prevParts[0].split('/')[0];
+                if (prevMove !== 'y2' && prevMove !== 'x2') {
+                    const prevParts = prevMove.split('/');
+                    if (prevParts.length >= 2) {
+                        const prevUpStr = prevParts[0];
                         prevUpStr.split(',').forEach(p => { if (p) prevLogicalPins[p] = true; });
                     }
                 }
@@ -1269,9 +1374,14 @@
             const physicalPinPos = {
                 'UL': ['36%', '36%'], 'UR': ['64%', '36%'], 'DL': ['36%', '64%'], 'DR': ['64%', '64%']
             };
+            const x2Rotate = { 'UL': 'DR', 'UR': 'DL', 'DL': 'UR', 'DR': 'UL', 'U': 'D', 'D': 'U', 'L': 'R', 'R': 'L', 'C': 'C' };
 
             changedPins.forEach(p => {
-                const pos = physicalPinPos[p];
+                let visualPin = p;
+                if (isBack && state.flipMode === 'x2') {
+                    visualPin = x2Rotate[p];
+                }
+                const pos = physicalPinPos[visualPin];
                 if (!pos) return;
                 const ring = document.createElement('div');
                 const isNowUp = currentLogicalPins[p];
@@ -1281,49 +1391,71 @@
                 board.appendChild(ring);
             });
 
-            const calcMatch = targetCalc ? targetCalc.match(/^C->(.+)$/) : null;
-            if (!calcMatch) return;
-            const targetName = calcMatch[1];
-
             const physicalClockCoord = {
                 'UL': [22, 22], 'U': [50, 22], 'UR': [78, 22],
                 'L': [22, 50], 'C': [50, 50], 'R': [78, 50],
                 'DL': [22, 78], 'D': [50, 78], 'DR': [78, 78]
             };
 
-            const startPtRaw = physicalClockCoord['C'];
-            let startPt = [startPtRaw[0], startPtRaw[1]];
-            let endPt = null;
-            const startMargin = 3;
+            // 操作リスト(ops)をループして複数の矢印を描画
+            ops.forEach(op => {
+                const opParts = op.split(':');
+                if (opParts.length !== 2) return;
+                const targetCalc = opParts[1];
 
-            if (targetName === '12') {
-                endPt = [startPt[0], startPt[1] - 14];
-            } else {
-                const rawEnd = physicalClockCoord[targetName];
-                if (rawEnd) {
-                    const dx = rawEnd[0] - startPtRaw[0];
-                    const dy = rawEnd[1] - startPtRaw[1];
-                    const len = Math.sqrt(dx * dx + dy * dy);
-                    startPt = [startPtRaw[0] + (dx / len) * startMargin, startPtRaw[1] + (dy / len) * startMargin];
-                    const endMargin = 3;
-                    endPt = [rawEnd[0] - (dx / len) * endMargin, rawEnd[1] - (dy / len) * endMargin];
+                const calcMatch = targetCalc.match(/^(.+)->(.+)$/);
+                if (!calcMatch) return;
+                const targetName = calcMatch[1];
+                const destName = calcMatch[2];
+
+                // 始点の見た目上の位置を計算
+                let visualStart = targetName;
+                if (isBack && state.flipMode === 'x2') visualStart = x2Rotate[targetName];
+                const startPtRaw = physicalClockCoord[visualStart] || physicalClockCoord['C'];
+
+                let startPt = [startPtRaw[0], startPtRaw[1]];
+                let endPt = null;
+                const startMargin = 3;
+
+                if (destName === '12') {
+                    if (isBack && state.flipMode === 'x2') {
+                        startPt = [startPtRaw[0], startPtRaw[1] + startMargin];
+                        endPt = [startPt[0], startPt[1] + 14];
+                    } else {
+                        startPt = [startPtRaw[0], startPtRaw[1] - startMargin];
+                        endPt = [startPt[0], startPt[1] - 14];
+                    }
+                } else {
+                    let visualDest = destName;
+                    if (isBack && state.flipMode === 'x2') visualDest = x2Rotate[destName];
+                    const rawEnd = physicalClockCoord[visualDest];
+                    if (rawEnd) {
+                        const dx = rawEnd[0] - startPtRaw[0];
+                        const dy = rawEnd[1] - startPtRaw[1];
+                        const len = Math.sqrt(dx * dx + dy * dy);
+                        if (len > 0) {
+                            startPt = [startPtRaw[0] + (dx / len) * startMargin, startPtRaw[1] + (dy / len) * startMargin];
+                            const endMargin = 3;
+                            endPt = [rawEnd[0] - (dx / len) * endMargin, rawEnd[1] - (dy / len) * endMargin];
+                        }
+                    }
                 }
-            }
 
-            if (startPt && endPt) {
-                const svgNS = "http://www.w3.org/2000/svg";
-                const arrowSvg = document.createElementNS(svgNS, "svg");
-                arrowSvg.setAttribute("class", "solve-arrow-svg");
-                arrowSvg.setAttribute("viewBox", "0 0 100 100");
-                const line = document.createElementNS(svgNS, "line");
-                line.setAttribute("class", "solve-arrow-line");
-                line.setAttribute("x1", `${startPt[0]}%`);
-                line.setAttribute("y1", `${startPt[1]}%`);
-                line.setAttribute("x2", `${endPt[0]}%`);
-                line.setAttribute("y2", `${endPt[1]}%`);
-                arrowSvg.appendChild(line);
-                board.appendChild(arrowSvg);
-            }
+                if (startPt && endPt) {
+                    const svgNS = "http://www.w3.org/2000/svg";
+                    const arrowSvg = document.createElementNS(svgNS, "svg");
+                    arrowSvg.setAttribute("class", "solve-arrow-svg");
+                    arrowSvg.setAttribute("viewBox", "0 0 100 100");
+                    const line = document.createElementNS(svgNS, "line");
+                    line.setAttribute("class", "solve-arrow-line");
+                    line.setAttribute("x1", `${startPt[0]}%`);
+                    line.setAttribute("y1", `${startPt[1]}%`);
+                    line.setAttribute("x2", `${endPt[0]}%`);
+                    line.setAttribute("y2", `${endPt[1]}%`);
+                    arrowSvg.appendChild(line);
+                    board.appendChild(arrowSvg);
+                }
+            });
         }
         initBoards();
     </script>
