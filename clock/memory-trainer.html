@@ -783,10 +783,18 @@
                         drawSolveVisuals(pinStr, ops);
 
                         const face = state.currentSolveFace;
+                        const lastFlip = getCurrentFlipType();
+                        const isX2Step = (face === 'B' && lastFlip === 'x2');
+                        const x2Rotate = { 'UL': 'DR', 'UR': 'DL', 'DL': 'UR', 'DR': 'UL' };
+
+                        // マッピングは常に y2 固定
                         const dialMap = { 'UL': `${face}00`, 'UR': `${face}20`, 'DL': `${face}02`, 'DR': `${face}22` };
+
                         const axisIds = [];
                         ops.forEach(op => {
-                            const dialStr = op.split(':')[0];
+                            let dialStr = op.split(':')[0];
+                            // x2 手順の場合はテキストのダイヤル位置を反転してから判定
+                            if (isX2Step) dialStr = x2Rotate[dialStr] || dialStr;
                             if (dialMap[dialStr]) axisIds.push(dialMap[dialStr]);
                         });
                         drawArcIndicators(axisIds);
@@ -1142,16 +1150,25 @@
             }
         }
 
+        function getCurrentFlipType() {
+            let lastFlip = 'y2'; // デフォルト
+            for (let i = 0; i <= state.currentSolveIndex; i++) {
+                const move = state.solveMoves[i];
+                if (move === 'y2' || move === 'x2') {
+                    lastFlip = move;
+                }
+            }
+            return lastFlip;
+        }
+
         function updateCurrentSolveFace() {
             let flipCount = 0;
-            // 手順を一つずつ見て、y2 または x2 が出るたびに面を反転させる
             for (let i = 0; i <= state.currentSolveIndex; i++) {
                 const move = state.solveMoves[i];
                 if (move === 'y2' || move === 'x2') {
                     flipCount++;
                 }
             }
-            // flipCount が奇数なら裏面(B)、偶数なら表面(F)
             state.currentSolveFace = (flipCount % 2 === 1) ? 'B' : 'F';
         }
         function applySolveMoveAt(index, isForward) {
@@ -1159,6 +1176,7 @@
             const move = state.solveMoves[index];
             updateCurrentSolveFace();
             const face = state.currentSolveFace;
+            const lastFlip = getCurrentFlipType();
 
             if (move === 'y2' || move === 'x2') {
                 document.querySelectorAll('.arc-indicator, .pin-highlight-ring, .solve-arrow-svg').forEach(el => el.remove());
@@ -1169,30 +1187,39 @@
                 return;
             }
 
-            // 新ルール: [上げるピン] / [操作1] / [操作2] ...
             const mainParts = move.split('/');
             if (mainParts.length < 2) return;
             const pinStr = mainParts[0];
-            const ops = mainParts.slice(1); // ["UL:UL->L", "DR:C->U"] など
+            const ops = mainParts.slice(1);
 
-            const upPins = pinStr.split(',');
-            if (face === 'F') {
-                Object.keys(state.pins).forEach(p => { state.pins[p] = upPins.includes(p); });
-            } else {
-                const y2Map = { 'UL': 'UR', 'UR': 'UL', 'DL': 'DR', 'DR': 'DL' };
-                Object.keys(state.pins).forEach(p => state.pins[p] = true);
-                upPins.forEach(backPin => {
-                    const frontPin = y2Map[backPin];
-                    if (frontPin) state.pins[frontPin] = false;
-                });
-            }
-
+            // 【修正】シミュレータ内部の物理マッピングは「常にy2基準」で固定する
             const clockMap = {
                 'UL': `${face}00`, 'U': `${face}10`, 'UR': `${face}20`,
                 'L': `${face}01`, 'C': `${face}11`, 'R': `${face}21`,
                 'DL': `${face}02`, 'D': `${face}12`, 'DR': `${face}22`
             };
             const dialMap = { 'UL': `${face}00`, 'UR': `${face}20`, 'DL': `${face}02`, 'DR': `${face}22` };
+            const backPinMap = { 'UL': 'UR', 'UR': 'UL', 'DL': 'DR', 'DR': 'DL' }; // 常にy2の対角連動
+
+            // 手順が x2 裏面の場合、テキストの指示を180度回転して y2 システムに渡すためのマップ
+            const x2Rotate = { 'UL': 'DR', 'UR': 'DL', 'DL': 'UR', 'DR': 'UL', 'U': 'D', 'D': 'U', 'L': 'R', 'R': 'L', 'C': 'C' };
+            const isX2Step = (face === 'B' && lastFlip === 'x2');
+
+            // ピンの処理 (x2の時は指示を180度回転)
+            const internalUpPins = pinStr.split(',').map(p => {
+                if (p && isX2Step) return x2Rotate[p] || p;
+                return p;
+            });
+
+            if (face === 'F') {
+                Object.keys(state.pins).forEach(p => { state.pins[p] = internalUpPins.includes(p); });
+            } else {
+                Object.keys(state.pins).forEach(p => state.pins[p] = true);
+                internalUpPins.forEach(backPin => {
+                    const frontPin = backPinMap[backPin];
+                    if (frontPin) state.pins[frontPin] = false;
+                });
+            }
 
             if (isForward) {
                 state.solveAmounts[index] = [];
@@ -1200,23 +1227,31 @@
 
             const debugOpLines = [];
             const axisIds = [];
-
-            // 戻る時は、後で実行した操作から順番に逆回転させる
             const opList = isForward ? ops : [...ops].reverse();
 
             opList.forEach((op, loopIdx) => {
                 const opIdx = isForward ? loopIdx : ops.length - 1 - loopIdx;
                 const opParts = op.split(':');
                 if (opParts.length !== 2) return;
+
                 const dialStr = opParts[0];
                 const targetCalc = opParts[1];
+
+                // ダイヤルの指示も180度回転
+                const internalDial = isX2Step ? (x2Rotate[dialStr] || dialStr) : dialStr;
 
                 let amount = 0;
                 if (isForward) {
                     const calcMatch = targetCalc.match(/^(.+)->(.+)$/);
                     if (calcMatch) {
-                        const targetName = calcMatch[1];
-                        const destName = calcMatch[2];
+                        let targetName = calcMatch[1];
+                        let destName = calcMatch[2];
+
+                        // 計算対象の時計も180度回転 (12時は画面上で常に上なので回転しない)
+                        if (isX2Step) {
+                            targetName = x2Rotate[targetName] || targetName;
+                            if (destName !== '12') destName = x2Rotate[destName] || destName;
+                        }
 
                         const currentTarget = state.clocks[clockMap[targetName]] || 0;
                         if (destName === '12') {
@@ -1232,7 +1267,7 @@
                     amount = (12 - savedAmount) % 12;
                 }
 
-                const axisId = dialMap[dialStr];
+                const axisId = dialMap[internalDial];
                 if (axisId) {
                     rotateEngine(axisId, amount);
                     axisIds.push(axisId);
@@ -1253,7 +1288,6 @@
             drawArcIndicators(axisIds);
             drawSolveVisuals(pinStr, ops);
         }
-
         function restoreSolvePinsForCurrentIndex() {
             if (state.currentSolveIndex >= 0 && state.currentSolveIndex < state.solveMoves.length) {
                 const move = state.solveMoves[state.currentSolveIndex];
@@ -1261,26 +1295,31 @@
                     document.querySelectorAll('.arc-indicator').forEach(el => el.remove());
                     return;
                 }
-                const mainParts = move.split(':');
-                if (mainParts.length === 2) {
-                    const leftSide = mainParts[0];
-                    const leftParts = leftSide.split('/');
-                    if (leftParts.length === 2) {
-                        const pinStr = leftParts[0];
-                        const upPins = pinStr.split(',');
-                        const face = state.currentSolveFace;
-                        if (face === 'F') {
-                            Object.keys(state.pins).forEach(p => { state.pins[p] = upPins.includes(p); });
-                        } else {
-                            const y2Map = { 'UL': 'UR', 'UR': 'UL', 'DL': 'DR', 'DR': 'DL' };
-                            Object.keys(state.pins).forEach(p => state.pins[p] = true);
-                            upPins.forEach(backPin => {
-                                const frontPin = y2Map[backPin];
-                                if (frontPin) state.pins[frontPin] = false;
-                            });
-                        }
-                        return;
+                const mainParts = move.split('/');
+                if (mainParts.length >= 2) {
+                    const pinStr = mainParts[0];
+                    const face = state.currentSolveFace;
+                    const lastFlip = getCurrentFlipType();
+
+                    const isX2Step = (face === 'B' && lastFlip === 'x2');
+                    const x2Rotate = { 'UL': 'DR', 'UR': 'DL', 'DL': 'UR', 'DR': 'UL' };
+
+                    const upPins = pinStr.split(',').map(p => {
+                        if (p && isX2Step) return x2Rotate[p] || p;
+                        return p;
+                    });
+
+                    if (face === 'F') {
+                        Object.keys(state.pins).forEach(p => { state.pins[p] = upPins.includes(p); });
+                    } else {
+                        const backPinMap = { 'UL': 'UR', 'UR': 'UL', 'DL': 'DR', 'DR': 'DL' };
+                        Object.keys(state.pins).forEach(p => state.pins[p] = true);
+                        upPins.forEach(backPin => {
+                            const frontPin = backPinMap[backPin];
+                            if (frontPin) state.pins[frontPin] = false;
+                        });
                     }
+                    return;
                 }
             }
             Object.keys(state.pins).forEach(p => state.pins[p] = false);
@@ -1350,6 +1389,11 @@
 
             const upPins = pinStr ? pinStr.split(',') : [];
             const isBack = (face === 'B');
+            const lastFlip = getCurrentFlipType(); // ★ 手順で使われた持ち替え
+
+            // ★ 手順の持ち替え(x2/y2)と、画面の表示モード(x2/y2)が異なる場合のみ描画を180度回す
+            const shouldRotate = isBack && (state.flipMode !== lastFlip);
+            const x2Rotate = { 'UL': 'DR', 'UR': 'DL', 'DL': 'UR', 'DR': 'UL', 'U': 'D', 'D': 'U', 'L': 'R', 'R': 'L', 'C': 'C' };
 
             const currentLogicalPins = { UL: false, UR: false, DL: false, DR: false };
             upPins.forEach(p => currentLogicalPins[p] = true);
@@ -1374,11 +1418,10 @@
             const physicalPinPos = {
                 'UL': ['36%', '36%'], 'UR': ['64%', '36%'], 'DL': ['36%', '64%'], 'DR': ['64%', '64%']
             };
-            const x2Rotate = { 'UL': 'DR', 'UR': 'DL', 'DL': 'UR', 'DR': 'UL', 'U': 'D', 'D': 'U', 'L': 'R', 'R': 'L', 'C': 'C' };
 
             changedPins.forEach(p => {
                 let visualPin = p;
-                if (isBack && state.flipMode === 'x2') {
+                if (shouldRotate) {
                     visualPin = x2Rotate[p];
                 }
                 const pos = physicalPinPos[visualPin];
@@ -1405,13 +1448,12 @@
                 const calcMatch = targetCalc.match(/^(.+)->(.+)$/);
                 if (!calcMatch) return;
 
-                const startName = calcMatch[1]; // UL など
-                const endName = calcMatch[2];   // L など
+                const startName = calcMatch[1];
+                const endName = calcMatch[2];
 
-                // 物理位置の取得（x2モード等の反転を考慮）
                 let vStart = startName;
                 let vEnd = endName;
-                if (isBack && state.flipMode === 'x2') {
+                if (state.flipMode === 'x2') {
                     vStart = x2Rotate[startName] || startName;
                     vEnd = x2Rotate[endName] || endName;
                 }
@@ -1419,25 +1461,36 @@
                 const rawStart = physicalClockCoord[vStart];
                 const rawEnd = physicalClockCoord[vEnd];
 
-                if (rawStart && rawEnd) {
-                    // 始点と終点のベクトル計算
+                let startPt = null;
+                let endPt = null;
+                const margin = 3;
+
+                if (endName === '12') {
+                    const noonMargin = 11;
+                    startPt = [rawStart[0], rawStart[1]];
+                    if (isBack && state.flipMode === 'x2') {
+                        endPt = [startPt[0], startPt[1] + noonMargin];
+                    } else {
+                        endPt = [startPt[0], startPt[1] - noonMargin];
+                    }
+                } else if (rawStart && rawEnd) {
                     const dx = rawEnd[0] - rawStart[0];
                     const dy = rawEnd[1] - rawStart[1];
                     const len = Math.sqrt(dx * dx + dy * dy);
 
-                    // 【修正】各時計の中心から、相手方向へ向かって「指定マージン分」だけずらす
-                    const startMargin = 3; // 矢印の開始と終了の余白（%単位）
-                    const endMargin = 4; // 矢印の開始と終了の余白（%単位）
+                    if (len > 0) {
+                        startPt = [
+                            rawStart[0] + (dx / len) * margin,
+                            rawStart[1] + (dy / len) * margin
+                        ];
+                        endPt = [
+                            rawEnd[0] - (dx / len) * margin,
+                            rawEnd[1] - (dy / len) * margin
+                        ];
+                    }
+                }
 
-                    const startPt = [
-                        rawStart[0] + (dx / len) * startMargin,
-                        rawStart[1] + (dy / len) * startMargin
-                    ];
-                    const endPt = [
-                        rawEnd[0] - (dx / len) * endMargin,
-                        rawEnd[1] - (dy / len) * endMargin
-                    ];
-
+                if (startPt && endPt) {
                     const svgNS = "http://www.w3.org/2000/svg";
                     const arrowSvg = document.createElementNS(svgNS, "svg");
                     arrowSvg.setAttribute("class", "solve-arrow-svg");
