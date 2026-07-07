@@ -340,7 +340,8 @@
             stroke-width: 2;
             stroke-linecap: round;
             opacity: 0.8;
-            marker-end: url(#solve-arrow-head);
+            /* marker-end は drawArrow() 側で個別のマーカーIDを
+               style.setProperty(..., 'important') で設定するため、ここでは指定しない */
         }
 
         #solve-arrow-head path {
@@ -473,6 +474,10 @@
                 ]
             }
         };
+        let savedMethod = localStorage.getItem('savedSolveMethod');
+        if (!savedMethod || !SOLVE_METHODS[savedMethod]) {
+            savedMethod = 'flip';
+        }
         const state = {
             clocks: {},
             flipMode: 'y2',
@@ -485,12 +490,10 @@
             solveMoves: [],
             mValues: {},
             mFormulas: {},
-            currentMethod: 'flip'
+            currentMethod: savedMethod
         };
-        // 【修正】 SOLVE_METHODS['flip'] の .moves を指定して配列を取り出す
+        // 配列の初期化も、保存された解法をベースに行う
         state.solveMoves = SOLVE_METHODS[state.currentMethod].moves;
-
-        // （配列の長さを使って初期化）
         state.solveAmounts = new Array(state.solveMoves.length).fill(null).map(() => ({ left: 0, right: 0 }));
 
         function initDataState() {
@@ -541,8 +544,17 @@
         }
 
         function initBoards() {
+            // 【追加】ドロップダウンの表示を、保存された解法に合わせる
+            const methodSelect = document.getElementById('solve-method');
+            if (methodSelect) {
+                methodSelect.value = state.currentMethod;
+            }
+
             initDataState();
-            buildDOMBoards();
+
+            // 【修正】単純な buildDOMBoards() ではなく、初期解法のモード(x2/y2)を適用する
+            setFlipMode(SOLVE_METHODS[state.currentMethod].mode);
+
             generateScrambleText();
             renderSolutionHTML();
         }
@@ -1156,86 +1168,6 @@
                 }
             }
         }
-        function drawMnArrows(formula) {
-            clearMnArrows();
-            const parts = formula.split('+');
-
-            // 視覚的な座標マップ（F面・B面共通の、画面上の見た目の位置）
-            const visualCoordMap = {
-                'UL': [21, 21], 'U': [50, 21], 'UR': [79, 21],
-                'L': [21, 50], 'C': [50, 50], 'R': [79, 50],
-                'DL': [21, 79], 'D': [50, 79], 'DR': [79, 79]
-            };
-
-            parts.forEach((part, index) => {
-                const [start, end] = part.split('->');
-                if (!start || !end) return;
-
-                const isBack = start === start.toLowerCase();
-                const face = isBack ? 'B' : 'F';
-                const board = document.getElementById(face === 'F' ? 'board-front' : 'board-back');
-                if (!board) return;
-
-                // 物理IDではなく、入力された「R」「l」などの文字から直接画面上の座標を取得
-                const rawStart = visualCoordMap[start.toUpperCase()];
-                const rawEnd = visualCoordMap[end.toUpperCase()];
-
-                if (!rawStart || !rawEnd) return;
-
-                const dx = rawEnd[0] - rawStart[0];
-                const dy = rawEnd[1] - rawStart[1];
-                const len = Math.sqrt(dx * dx + dy * dy);
-
-                if (len > 0) {
-                    const margin = 2;
-                    const startPt = [
-                        rawStart[0] + (dx / len) * margin,
-                        rawStart[1] + (dy / len) * margin
-                    ];
-                    const endPt = [
-                        rawEnd[0] - (dx / len) * margin,
-                        rawEnd[1] - (dy / len) * margin
-                    ];
-
-                    const svgNS = "http://www.w3.org/2000/svg";
-                    const arrowSvg = document.createElementNS(svgNS, "svg");
-                    arrowSvg.setAttribute("class", "solve-arrow-svg mn-arrow-temp");
-                    arrowSvg.setAttribute("viewBox", "0 0 100 100");
-                    arrowSvg.style.pointerEvents = "none";
-
-                    // 【修正】矢印の先端(marker)を、生成したSVG自身の内部に正しく定義する
-                    const markerId = `mn-arrow-head-${index}`;
-                    const defs = document.createElementNS(svgNS, "defs");
-                    defs.innerHTML = `
-                        <marker id="${markerId}" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#9c36b5" opacity="0.8"/>
-                        </marker>
-                    `;
-                    arrowSvg.appendChild(defs);
-
-                    const line = document.createElementNS(svgNS, "line");
-                    line.setAttribute("class", "solve-arrow-line");
-                    line.setAttribute("x1", `${startPt[0]}%`);
-                    line.setAttribute("y1", `${startPt[1]}%`);
-                    line.setAttribute("x2", `${endPt[0]}%`);
-                    line.setAttribute("y2", `${endPt[1]}%`);
-
-                    line.style.setProperty('stroke', '#9c36b5', 'important');
-                    line.style.setProperty('stroke-width', '3', 'important');
-
-                    // 【修正】styleプロパティではなく、SVGの属性としてマーカーを指定
-                    line.setAttribute("marker-end", `url(#${markerId})`);
-
-                    arrowSvg.appendChild(line);
-                    board.appendChild(arrowSvg);
-                }
-            });
-        }
-
-        // 【追加】Mnの紫矢印を消去する関数
-        function clearMnArrows() {
-            document.querySelectorAll('.mn-arrow-temp').forEach(el => el.remove());
-        }
 
         // 【追加】UI表示領域の確保
         function ensureMnDisplayContainer() {
@@ -1338,6 +1270,8 @@
         // 【修正】解法を切り替えた際、時計の針をスクランブル直後（0手目）に完全リセットする
         function changeSolveMethod(methodKey) {
             state.currentMethod = methodKey;
+            // 【追加】選択された解法をブラウザに保存する
+            localStorage.setItem('savedSolveMethod', methodKey);
             const methodData = SOLVE_METHODS[methodKey];
             state.solveMoves = methodData.moves;
             state.mValues = {};
@@ -1638,134 +1572,242 @@
         function solveLast() {
             while (state.currentSolveIndex < state.solveMoves.length - 1) solveNext();
         }
+
+        // -------------------------------------------------------------------
+        // 矢印と描画関連の共通関数群
+        // -------------------------------------------------------------------
+
+        // 【共通】画面上の時計座標マップ
+        const VISUAL_COORD_MAP = {
+            'UL': [21, 21], 'U': [50, 21], 'UR': [79, 21],
+            'L': [21, 50], 'C': [50, 50], 'R': [79, 50],
+            'DL': [21, 79], 'D': [50, 79], 'DR': [79, 79]
+        };
+
+        // 【共通】始点と終点の名前から、矢印を描画する座標を計算する関数
+        function calculateArrowPoints(startName, endName, isBackAndX2) {
+            const rawStart = VISUAL_COORD_MAP[startName];
+            if (!rawStart) return null;
+
+            if (endName === '12') {
+                const noonMargin = 11;
+                const endPt = [rawStart[0], rawStart[1] + (isBackAndX2 ? noonMargin : -noonMargin)];
+                return { startPt: rawStart, endPt: endPt };
+            }
+
+            const rawEnd = VISUAL_COORD_MAP[endName];
+            if (!rawEnd) return null;
+
+            const dx = rawEnd[0] - rawStart[0];
+            const dy = rawEnd[1] - rawStart[1];
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len === 0) return null;
+
+            const startMargin = 3; // 矢印の両端の余白
+            const endMargin = 8; // 矢印の両端の余白
+            return {
+                startPt: [rawStart[0] + (dx / len) * startMargin, rawStart[1] + (dy / len) * startMargin],
+                endPt: [rawEnd[0] - (dx / len) * endMargin, rawEnd[1] - (dy / len) * endMargin]
+            };
+        }
+
+        // 【共通】指定されたボードに矢印SVG要素を生成して追加する関数
+        function drawArrow(board, startPt, endPt, color, markerIdSuffix, customClass = "") {
+            const svgNS = "http://www.w3.org/2000/svg";
+            const arrowSvg = document.createElementNS(svgNS, "svg");
+
+            arrowSvg.setAttribute("class", `solve-arrow-svg ${customClass}`);
+            arrowSvg.setAttribute("viewBox", "0 0 100 100");
+            if (customClass) arrowSvg.style.pointerEvents = "none";
+
+            // marker等のSVG内部要素も createElementNS で生成しないとブラウザが認識しない
+            const defs = document.createElementNS(svgNS, "defs");
+            const marker = document.createElementNS(svgNS, "marker");
+            const markerId = `arrow-head-${markerIdSuffix}`;
+
+            marker.setAttribute("id", markerId);
+            marker.setAttribute("viewBox", "0 0 10 10");
+            marker.setAttribute("refX", "3");
+            marker.setAttribute("refY", "5");
+            marker.setAttribute("markerWidth", "4");
+            marker.setAttribute("markerHeight", "4");
+            marker.setAttribute("orient", "auto-start-reverse");
+
+            const path = document.createElementNS(svgNS, "path");
+            path.setAttribute("d", "M 0 1.5 L 8 5 L 0 8.5 z");
+            path.setAttribute("fill", color);
+            path.setAttribute("opacity", "0.8");
+
+            marker.appendChild(path);
+            defs.appendChild(marker);
+            arrowSvg.appendChild(defs);
+
+            const line = document.createElementNS(svgNS, "line");
+            line.setAttribute("class", "solve-arrow-line");
+            line.setAttribute("x1", `${startPt[0]}%`);
+            line.setAttribute("y1", `${startPt[1]}%`);
+            line.setAttribute("x2", `${endPt[0]}%`);
+            line.setAttribute("y2", `${endPt[1]}%`);
+
+            line.style.setProperty('stroke', color, 'important');
+            line.style.setProperty('stroke-width', '3', 'important');
+            // CSS側の .solve-arrow-line { marker-end: url(#solve-arrow-head); } が
+            // setAttribute("marker-end", ...) より優先されてしまい、
+            // 存在しないID(#solve-arrow-head)を参照し続けて矢印が描画されなくなるバグがあったため、
+            // stroke等と同様に style.setProperty + important で確実に上書きする
+            line.style.setProperty('marker-end', `url(#${markerId})`, 'important');
+
+            arrowSvg.appendChild(line);
+            board.appendChild(arrowSvg);
+        }
+
+        // -------------------------------------------------------------------
+        // 各種機能ごとの描画関数
+        // -------------------------------------------------------------------
+
+        function clearMnArrows() {
+            document.querySelectorAll('.mn-arrow-temp').forEach(el => el.remove());
+        }
+
+        function drawMnArrows(formula) {
+            clearMnArrows();
+            const parts = formula.split('+');
+
+            parts.forEach((part, index) => {
+                const [start, end] = part.split('->');
+                if (!start || !end) return;
+
+                const isBack = start === start.toLowerCase();
+                const face = isBack ? 'B' : 'F';
+                const board = document.getElementById(face === 'F' ? 'board-front' : 'board-back');
+                if (!board) return;
+
+                const pts = calculateArrowPoints(start.toUpperCase(), end.toUpperCase(), false);
+                if (pts) {
+                    // 紫色で描画
+                    drawArrow(board, pts.startPt, pts.endPt, '#9c36b5', `mn-${index}`, 'mn-arrow-temp');
+                }
+            });
+        }
+
         function drawSolveVisuals(pinStr, opInfoList) {
             document.querySelectorAll('.pin-highlight-ring, .solve-arrow-svg').forEach(el => el.remove());
             const face = state.currentSolveFace;
             const board = document.getElementById(face === 'F' ? 'board-front' : 'board-back');
             if (!board) return;
 
+            drawSolvePins(pinStr, face, board);
+            drawSolveOperations(opInfoList, face, board);
+        }
+
+        // ピンのハイライトを描画する処理（drawSolveVisualsから切り出し）
+        function drawSolvePins(pinStr, face, board) {
             const upPins = pinStr ? pinStr.split(',') : [];
             const isBack = (face === 'B');
             const lastFlip = getCurrentFlipType();
             const shouldRotate = isBack && (state.flipMode !== lastFlip);
-            const x2Rotate = { 'UL': 'DR', 'UR': 'DL', 'DL': 'UR', 'DR': 'UL', 'U': 'D', 'D': 'U', 'L': 'R', 'R': 'L', 'C': 'C' };
+            const x2Rotate = { 'UL': 'DR', 'UR': 'DL', 'DL': 'UR', 'DR': 'UL' };
+            const pinPos = { 'UL': ['36%', '36%'], 'UR': ['64%', '36%'], 'DL': ['36%', '64%'], 'DR': ['64%', '64%'] };
 
-            const currentLogicalPins = { UL: false, UR: false, DL: false, DR: false };
+            const currentLogicalPins = {};
             upPins.forEach(p => currentLogicalPins[p] = true);
 
+            const prevLogicalPins = getPrevLogicalPins();
+
+            Object.keys(currentLogicalPins).forEach(p => {
+                if (currentLogicalPins[p] === prevLogicalPins[p]) return;
+
+                const visualPin = shouldRotate ? x2Rotate[p] : p;
+                const pos = pinPos[visualPin];
+                if (!pos) return;
+
+                const ring = document.createElement('div');
+                ring.className = `pin-highlight-ring ${currentLogicalPins[p] ? 'ring-up' : 'ring-down'}`;
+                ring.style.left = pos[0];
+                ring.style.top = pos[1];
+                board.appendChild(ring);
+            });
+        }
+
+        // 1手前のピン状態を取得する処理（ネストを浅くするため分離）
+        function getPrevLogicalPins() {
             const prevLogicalPins = { UL: false, UR: false, DL: false, DR: false };
             if (state.currentSolveIndex > 0) {
                 const prevMove = state.solveMoves[state.currentSolveIndex - 1];
                 if (prevMove !== 'y2' && prevMove !== 'x2') {
                     const prevParts = prevMove.split('/');
                     if (prevParts.length >= 3) {
-                        const prevUpStr = prevParts[0];
-                        prevUpStr.split(',').forEach(p => { if (p) prevLogicalPins[p] = true; });
+                        prevParts[0].split(',').forEach(p => { if (p) prevLogicalPins[p] = true; });
                     }
                 }
             }
+            return prevLogicalPins;
+        }
 
-            const changedPins = [];
-            Object.keys(currentLogicalPins).forEach(p => {
-                if (currentLogicalPins[p] !== prevLogicalPins[p]) changedPins.push(p);
-            });
+        // 矢印（操作）を描画する処理（差し替え）
+        function drawSolveOperations(opInfoList, face, board) {
+            const isBack = (face === 'B');
+            const lastFlip = getCurrentFlipType();
+            const shouldRotate = isBack && (state.flipMode !== lastFlip);
+            const x2Rotate = { 'UL': 'DR', 'UR': 'DL', 'DL': 'UR', 'DR': 'UL', 'U': 'D', 'D': 'U', 'L': 'R', 'R': 'L', 'C': 'C' };
 
-            const physicalPinPos = {
-                'UL': ['36%', '36%'], 'UR': ['64%', '36%'], 'DL': ['36%', '64%'], 'DR': ['64%', '64%']
-            };
-
-            changedPins.forEach(p => {
-                let visualPin = p;
-                if (shouldRotate) visualPin = x2Rotate[p];
-                const pos = physicalPinPos[visualPin];
-                if (!pos) return;
-                const ring = document.createElement('div');
-                const isNowUp = currentLogicalPins[p];
-                ring.className = `pin-highlight-ring ${isNowUp ? 'ring-up' : 'ring-down'}`;
-                ring.style.left = pos[0];
-                ring.style.top = pos[1];
-                board.appendChild(ring);
-            });
-
-            const physicalClockCoord = {
-                'UL': [21, 21], 'U': [50, 21], 'UR': [79, 21],
-                'L': [21, 50], 'C': [50, 50], 'R': [79, 50],
-                'DL': [21, 79], 'D': [50, 79], 'DR': [79, 79]
-            };
-
-            // 左右の操作リストを展開して描画
             opInfoList.forEach(info => {
                 if (!info.op || info.op === '-') return;
 
                 const opParts = info.op.split(':');
                 if (opParts.length !== 2) return;
+
+                const dialStr = opParts[0];
                 const targetCalc = opParts[1];
                 const calcMatch = targetCalc.match(/^(.+)->(.+)$/);
-                if (!calcMatch) return;
 
-                const startName = calcMatch[1];
-                const endName = calcMatch[2];
+                if (calcMatch) {
+                    // 通常の「A->B」の矢印描画
+                    const vStart = shouldRotate ? (x2Rotate[calcMatch[1]] || calcMatch[1]) : calcMatch[1];
+                    const vEnd = shouldRotate ? (x2Rotate[calcMatch[2]] || calcMatch[2]) : calcMatch[2];
+                    const isBackAndX2 = isBack && state.flipMode === 'x2';
 
-                let vStart = startName;
-                let vEnd = endName;
-                if (shouldRotate) {
-                    vStart = x2Rotate[startName] || startName;
-                    vEnd = x2Rotate[endName] || endName;
-                }
-
-                const rawStart = physicalClockCoord[vStart];
-                const rawEnd = physicalClockCoord[vEnd];
-
-                let startPt = null;
-                let endPt = null;
-                const margin = 3;
-
-                if (endName === '12') {
-                    const noonMargin = 11;
-                    startPt = [rawStart[0], rawStart[1]];
-                    if (isBack && state.flipMode === 'x2') {
-                        endPt = [startPt[0], startPt[1] + noonMargin];
-                    } else {
-                        endPt = [startPt[0], startPt[1] - noonMargin];
+                    const pts = calculateArrowPoints(vStart, vEnd, isBackAndX2);
+                    if (pts) {
+                        drawArrow(board, pts.startPt, pts.endPt, info.color, info.type);
                     }
-                } else if (rawStart && rawEnd) {
-                    const dx = rawEnd[0] - rawStart[0];
-                    const dy = rawEnd[1] - rawStart[1];
-                    const len = Math.sqrt(dx * dx + dy * dy);
-
-                    if (len > 0) {
-                        startPt = [
-                            rawStart[0] + (dx / len) * margin,
-                            rawStart[1] + (dy / len) * margin
-                        ];
-                        endPt = [
-                            rawEnd[0] - (dx / len) * margin,
-                            rawEnd[1] - (dy / len) * margin
-                        ];
-                    }
-                }
-
-                if (startPt && endPt) {
-                    const svgNS = "http://www.w3.org/2000/svg";
-                    const arrowSvg = document.createElementNS(svgNS, "svg");
-                    arrowSvg.setAttribute("class", "solve-arrow-svg");
-                    arrowSvg.setAttribute("viewBox", "0 0 100 100");
-                    const line = document.createElementNS(svgNS, "line");
-                    line.setAttribute("class", "solve-arrow-line");
-                    line.setAttribute("x1", `${startPt[0]}%`);
-                    line.setAttribute("y1", `${startPt[1]}%`);
-                    line.setAttribute("x2", `${endPt[0]}%`);
-                    line.setAttribute("y2", `${endPt[1]}%`);
-
-                    // 【追加】色とマーカーを動的に設定
-                    line.style.setProperty('stroke', info.color, 'important');
-                    line.style.markerEnd = `url(#solve-arrow-head-${info.type})`;
-
-                    arrowSvg.appendChild(line);
-                    board.appendChild(arrowSvg);
+                } else if (state.mFormulas && state.mFormulas[targetCalc]) {
+                    // 【追加】M1〜M6 等の変数の場合、ダイヤル付近に文字ラベルを描画する
+                    const vDial = shouldRotate ? (x2Rotate[dialStr] || dialStr) : dialStr;
+                    drawMnLabel(board, vDial, targetCalc, info.color);
                 }
             });
         }
+
+        // 【追加】Mnの文字ラベルを描画する関数
+        function drawMnLabel(board, dialName, textStr, color) {
+            const rawCoord = VISUAL_COORD_MAP[dialName];
+            if (!rawCoord) return;
+
+            const label = document.createElement('div');
+            // 既存のクリア処理で一緒に消えるように 'solve-arrow-svg' クラスを併記する
+            label.className = 'solve-mn-label solve-arrow-svg';
+            label.innerText = textStr;
+            label.style.position = 'absolute';
+
+            // ダイヤルの中心から右上に少しずらして配置
+            label.style.left = `calc(${rawCoord[0]}%)`;
+            label.style.top = `calc(${rawCoord[1]}% + 55px)`;
+            label.style.transform = 'translate(-50%, -50%)';
+
+            // 視認性を高めるためのスタイル設定
+            label.style.color = color;
+            label.style.fontWeight = '900';
+            label.style.fontSize = '22px';
+            label.style.fontFamily = 'sans-serif';
+            // 文字が盤面に埋もれないように白い縁取りと影をつける
+            label.style.textShadow = '2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 0px 3px 5px rgba(0,0,0,0.4)';
+            label.style.pointerEvents = 'none';
+            label.style.zIndex = '25';
+
+            board.appendChild(label);
+        }
+
         initBoards();
     </script>
 </body>
