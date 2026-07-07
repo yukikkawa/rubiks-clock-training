@@ -1,6 +1,14 @@
 /**
  * Rubik's Clock Common Utilities
  */
+
+// 定数をグローバルに定義（どのファイルからも参照可能）
+const COLORS = {
+    leftHand: '#f06595',
+    rightHand: '#339af0',
+    defaultSolve: '#ff922b'
+};
+
 const ClockUtils = {
     /**
      * Dynamically creates a clock SVG element.
@@ -9,7 +17,7 @@ const ClockUtils = {
      * @returns {SVGElement} The constructed SVG element
      */
     createClockSVG(id, options = {}) {
-        const isFront = options.isFront !== false; // Default: true
+        const isFront = options.isFront !== false;
         const className = options.className || 'sub-clock';
         const isCornerClickable = !!options.isCornerClickable;
         const clickHandler = options.clickHandler || null;
@@ -31,19 +39,22 @@ const ClockUtils = {
 
         const borderStroke = isFront ? "#0288d1" : "#3f51b5";
 
+        // テンプレート文字列内で COLORS を正しく参照
         svg.innerHTML = `
             <circle cx="50" cy="50" r="45" fill="none" stroke="${borderStroke}" stroke-width="2"/>
             <circle id="dot-${id}" cx="50" cy="12" r="3" fill="#f03e3e"/>
             <g id="ticks-${id}"></g>
             <line id="${handId}" x1="50" y1="50" x2="50" y2="15" stroke="#212529" stroke-width="5" stroke-linecap="round"/>
             <defs>
-                <marker id="solve-arrow-head" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                    <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#fa5252"/>
+                <marker id="solve-arrow-head-left" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="${COLORS.leftHand}" opacity="0.80"/>
+                </marker>
+                <marker id="solve-arrow-head-right" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="${COLORS.rightHand}" opacity="0.80"/>
                 </marker>
             </defs>
         `;
 
-        // Populate initial ticks (unflipped)
         const ticksGroup = svg.querySelector(`#ticks-${id}`);
         if (ticksGroup) {
             this.renderTicks(ticksGroup, false);
@@ -107,13 +118,7 @@ const ClockUtils = {
             currentAngleMap[handId] = targetAngleBase;
             handElement.style.transform = `rotate(${targetAngleBase}deg)`;
         } else {
-            let diff;
-            if (customDiffCalculator) {
-                diff = customDiffCalculator(currentAngle, targetHour);
-            } else {
-                diff = this.calcShortestAngleDiff(currentAngle, targetHour);
-            }
-            
+            let diff = customDiffCalculator ? customDiffCalculator(currentAngle, targetHour) : this.calcShortestAngleDiff(currentAngle, targetHour);
             let newAngle = currentAngle + diff;
             currentAngleMap[handId] = newAngle;
             handElement.style.transform = `rotate(${newAngle}deg)`;
