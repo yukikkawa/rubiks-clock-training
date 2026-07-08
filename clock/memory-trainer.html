@@ -204,7 +204,7 @@
         .arc-path {
             fill: none;
             stroke: #ff6b2b;
-            stroke-width: 4;
+            stroke-width: 6;
             stroke-linecap: round;
         }
 
@@ -1469,41 +1469,77 @@
             drawArcIndicators(axisIds);
             drawSolveVisuals(pinStr, opInfoList);
         }
-
         function restoreSolvePinsForCurrentIndex() {
             if (state.currentSolveIndex >= 0 && state.currentSolveIndex < state.solveMoves.length) {
                 const move = state.solveMoves[state.currentSolveIndex];
+                let targetPinStr = "";
+                let targetIndex = state.currentSolveIndex; // ピン指定が書かれている手のインデックス
+
                 if (move === 'y2' || move === 'x2') {
+                    // アーク（円弧）を消去する
                     document.querySelectorAll('.arc-indicator').forEach(el => el.remove());
-                    return;
-                }
-                const mainParts = move.split('/');
-                if (mainParts.length >= 3) { // ★ 3 に変更
-                    const pinStr = mainParts[0];
-                    const face = state.currentSolveFace;
-                    const lastFlip = getCurrentFlipType();
 
-                    const isX2Step = (face === 'B' && lastFlip === 'x2');
-                    const x2Rotate = { 'UL': 'DR', 'UR': 'DL', 'DL': 'UR', 'DR': 'UL' };
-
-                    const upPins = pinStr.split(',').map(p => {
-                        if (p && isX2Step) return x2Rotate[p] || p;
-                        return p;
-                    });
-
-                    if (face === 'F') {
-                        Object.keys(state.pins).forEach(p => { state.pins[p] = upPins.includes(p); });
-                    } else {
-                        const backPinMap = { 'UL': 'UR', 'UR': 'UL', 'DL': 'DR', 'DR': 'DL' };
-                        Object.keys(state.pins).forEach(p => state.pins[p] = true);
-                        upPins.forEach(backPin => {
-                            const frontPin = backPinMap[backPin];
-                            if (frontPin) state.pins[frontPin] = false;
-                        });
+                    // 直前のピン操作を探して取得する
+                    for (let i = state.currentSolveIndex - 1; i >= 0; i--) {
+                        const m = state.solveMoves[i];
+                        if (m !== 'y2' && m !== 'x2') {
+                            const parts = m.split('/');
+                            if (parts.length >= 3) {
+                                targetPinStr = parts[0];
+                                targetIndex = i; // 見つけたピン操作の手のインデックスを保持
+                                break;
+                            }
+                        }
                     }
-                    return;
+                } else {
+                    const mainParts = move.split('/');
+                    if (mainParts.length >= 3) {
+                        targetPinStr = mainParts[0];
+                    } else {
+                        Object.keys(state.pins).forEach(p => state.pins[p] = false);
+                        return;
+                    }
                 }
+
+                // ★追加：ピン操作が行われた「その手時点での面 (F/B)」を正確に計算する
+                let face = 'F';
+                for (let i = 0; i <= targetIndex; i++) {
+                    if (state.solveMoves[i] === 'y2' || state.solveMoves[i] === 'x2') {
+                        face = face === 'F' ? 'B' : 'F';
+                    }
+                }
+
+                // ★追加：ピン操作が行われた「その手時点でのフリップモード」を計算する
+                let lastFlip = state.flipMode;
+                for (let i = 0; i <= targetIndex; i++) {
+                    if (state.solveMoves[i] === 'y2' || state.solveMoves[i] === 'x2') {
+                        lastFlip = state.solveMoves[i];
+                    }
+                }
+
+                const isX2Step = (face === 'B' && lastFlip === 'x2');
+                const x2Rotate = { 'UL': 'DR', 'UR': 'DL', 'DL': 'UR', 'DR': 'UL' };
+
+                const upPins = targetPinStr.split(',').map(p => {
+                    if (p && isX2Step) return x2Rotate[p] || p;
+                    return p;
+                }).filter(p => p);
+
+                // 取得した「当時の面」を基準にして物理ピンを上げ下げする
+                if (face === 'F') {
+                    Object.keys(state.pins).forEach(p => { state.pins[p] = upPins.includes(p); });
+                } else {
+                    const backPinMap = { 'UL': 'UR', 'UR': 'UL', 'DL': 'DR', 'DR': 'DL' };
+                    Object.keys(state.pins).forEach(p => state.pins[p] = true);
+                    upPins.forEach(backPin => {
+                        const frontPin = backPinMap[backPin];
+                        if (frontPin) state.pins[frontPin] = false;
+                    });
+                }
+                return;
             }
+
+            // 範囲外（-1など未開始時）は全てfalseにする
             Object.keys(state.pins).forEach(p => state.pins[p] = false);
         }
 
@@ -1734,25 +1770,62 @@
         }
 
         // 1手前のピン状態を取得する処理（ネストを浅くするため分離）
+        // 1手前のピン状態を取得する処理（持ち替えによる裏面の視点反転を考慮）
         function getPrevLogicalPins() {
             const prevLogicalPins = { UL: false, UR: false, DL: false, DR: false };
 
-            // 現在のインデックスより前の手で、最初にピン指定がある手を探す
-            for (let i = state.currentSolveIndex - 1; i >= 0; i--) {
-                const move = state.solveMoves[i];
-                if (move !== 'y2' && move !== 'x2') {
-                    const parts = move.split('/');
-                    if (parts.length >= 3) {
-                        parts[0].split(',').forEach(p => {
-                            if (p && prevLogicalPins[p] !== undefined) {
-                                prevLogicalPins[p] = true;
-                            }
-                        });
-                        return prevLogicalPins; // 見つかったらそこで遡りを終了して返す
+            const prevIndex = state.currentSolveIndex - 1;
+            if (prevIndex < 0) return prevLogicalPins;
+
+            const prevMove = state.solveMoves[prevIndex];
+
+            // 1つ前が持ち替え操作だった場合
+            if (prevMove === 'y2' || prevMove === 'x2') {
+                // さらにその前の操作（通常操作）を探す
+                let baseMove = null;
+                for (let i = prevIndex - 1; i >= 0; i--) {
+                    if (state.solveMoves[i] !== 'y2' && state.solveMoves[i] !== 'x2') {
+                        baseMove = state.solveMoves[i];
+                        break;
                     }
                 }
+
+                if (!baseMove) return prevLogicalPins;
+
+                const parts = baseMove.split('/');
+                const basePins = { UL: false, UR: false, DL: false, DR: false };
+                parts[0].split(',').forEach(p => {
+                    if (p && basePins[p] !== undefined) basePins[p] = true;
+                });
+
+                // 表面で「下がっている(DOWN)」ピンが、裏面からは「上がって(UP)」見える。
+                // それに持ち替えの視点移動（左右反転 or 180度反転）を適用してマッピングする。
+                if (prevMove === 'y2') {
+                    // y2 (左右反転)
+                    if (!basePins['UL']) prevLogicalPins['UR'] = true;
+                    if (!basePins['UR']) prevLogicalPins['UL'] = true;
+                    if (!basePins['DL']) prevLogicalPins['DR'] = true;
+                    if (!basePins['DR']) prevLogicalPins['DL'] = true;
+                } else if (prevMove === 'x2') {
+                    // x2 (180度反転/対角反転)
+                    if (!basePins['UL']) prevLogicalPins['DL'] = true;
+                    if (!basePins['UR']) prevLogicalPins['DR'] = true;
+                    if (!basePins['DL']) prevLogicalPins['UL'] = true;
+                    if (!basePins['DR']) prevLogicalPins['UR'] = true;
+                }
+            } else {
+                // 1つ前が通常操作なら、そのピン状態をそのまま返す
+                const parts = prevMove.split('/');
+                if (parts.length >= 3) {
+                    parts[0].split(',').forEach(p => {
+                        if (p && prevLogicalPins[p] !== undefined) {
+                            prevLogicalPins[p] = true;
+                        }
+                    });
+                }
             }
-            return prevLogicalPins; // 一度もピン操作がなければ全てfalse
+
+            return prevLogicalPins;
         }
 
         // 矢印（操作）を描画する処理（差し替え）
