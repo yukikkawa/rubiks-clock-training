@@ -1709,11 +1709,14 @@
             const x2Rotate = { 'UL': 'DR', 'UR': 'DL', 'DL': 'UR', 'DR': 'UL' };
             const pinPos = { 'UL': ['36%', '36%'], 'UR': ['64%', '36%'], 'DL': ['36%', '64%'], 'DR': ['64%', '64%'] };
 
-            const currentLogicalPins = {};
-            upPins.forEach(p => currentLogicalPins[p] = true);
+            const currentLogicalPins = { UL: false, UR: false, DL: false, DR: false };
+            upPins.forEach(p => {
+                if (p) currentLogicalPins[p] = true;
+            });
 
             const prevLogicalPins = getPrevLogicalPins();
 
+            // 4つ全てのピンについて、前回と状態が変わっているか比較する
             Object.keys(currentLogicalPins).forEach(p => {
                 if (currentLogicalPins[p] === prevLogicalPins[p]) return;
 
@@ -1722,6 +1725,7 @@
                 if (!pos) return;
 
                 const ring = document.createElement('div');
+                // 上がったなら ring-up(オレンジ)、下がったなら ring-down(紺色の点線)
                 ring.className = `pin-highlight-ring ${currentLogicalPins[p] ? 'ring-up' : 'ring-down'}`;
                 ring.style.left = pos[0];
                 ring.style.top = pos[1];
@@ -1732,16 +1736,23 @@
         // 1手前のピン状態を取得する処理（ネストを浅くするため分離）
         function getPrevLogicalPins() {
             const prevLogicalPins = { UL: false, UR: false, DL: false, DR: false };
-            if (state.currentSolveIndex > 0) {
-                const prevMove = state.solveMoves[state.currentSolveIndex - 1];
-                if (prevMove !== 'y2' && prevMove !== 'x2') {
-                    const prevParts = prevMove.split('/');
-                    if (prevParts.length >= 3) {
-                        prevParts[0].split(',').forEach(p => { if (p) prevLogicalPins[p] = true; });
+
+            // 現在のインデックスより前の手で、最初にピン指定がある手を探す
+            for (let i = state.currentSolveIndex - 1; i >= 0; i--) {
+                const move = state.solveMoves[i];
+                if (move !== 'y2' && move !== 'x2') {
+                    const parts = move.split('/');
+                    if (parts.length >= 3) {
+                        parts[0].split(',').forEach(p => {
+                            if (p && prevLogicalPins[p] !== undefined) {
+                                prevLogicalPins[p] = true;
+                            }
+                        });
+                        return prevLogicalPins; // 見つかったらそこで遡りを終了して返す
                     }
                 }
             }
-            return prevLogicalPins;
+            return prevLogicalPins; // 一度もピン操作がなければ全てfalse
         }
 
         // 矢印（操作）を描画する処理（差し替え）
@@ -1785,22 +1796,29 @@
             if (!rawCoord) return;
 
             const label = document.createElement('div');
-            // 既存のクリア処理で一緒に消えるように 'solve-arrow-svg' クラスを併記する
             label.className = 'solve-mn-label solve-arrow-svg';
             label.innerText = textStr;
             label.style.position = 'absolute';
 
-            // ダイヤルの中心から右上に少しずらして配置
-            label.style.left = `calc(${rawCoord[0]}%)`;
-            label.style.top = `calc(${rawCoord[1]}% + 55px)`;
-            label.style.transform = 'translate(-50%, -50%)';
+            // ズレ幅（オフセット）を小さくして、ダイヤルのフチに乗るように調整
+            let offset = 20;
+            let offsetX = 0;
+            let offsetY = 0;
 
-            // 視認性を高めるためのスタイル設定
+            if (dialName.includes('L')) offsetX = -offset;
+            if (dialName.includes('R')) offsetX = offset;
+            if (dialName.includes('U')) offsetY = -offset;
+            if (dialName.includes('D')) offsetY = offset;
+
+            // 計算したオフセットを適用
+            label.style.left = `calc(${rawCoord[0]}% + ${offsetX}px)`;
+            label.style.top = `calc(${rawCoord[1]}% + ${offsetY}px)`;
+            label.style.transform = 'translate(-50%, -20%)';
+
             label.style.color = color;
             label.style.fontWeight = '900';
             label.style.fontSize = '22px';
             label.style.fontFamily = 'sans-serif';
-            // 文字が盤面に埋もれないように白い縁取りと影をつける
             label.style.textShadow = '2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 0px 3px 5px rgba(0,0,0,0.4)';
             label.style.pointerEvents = 'none';
             label.style.zIndex = '25';
