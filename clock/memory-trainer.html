@@ -415,6 +415,7 @@
                 <option value="10mm">10MM (10 Moves Memoless)</option>
                 <option value="7sfndmw6lm">7sfndmw6lm</option>
                 <option value="bpaul">bpaul</option>
+                <option value="bpaul_x2">bpaul(x2)</option>
             </select>
         </div>
         <div class="solution-controls">
@@ -490,8 +491,28 @@
                 moves: [
                     "UL,UR,DR/DL:M2/UR:M1",
                     "UR,DR/UL:M3/UR:U->L",
-                    "DR/UL:UL->U/UR:C->U",
+                    "DR/UL:UL->U/DR:C->U",
                     "UL,DL,DR/DL:M4/UR:M5",
+                    "UL,DL/UL:D->R/-",
+                    "UL,DL/-/UR:UR->DL",
+                    "UL/UL:C->R/UR:DR->R",
+                    "UL,DR/UL:C->12/UR:UR->12"
+                ]
+            },
+            'bpaul_x2': {
+                mode: 'x2',
+                formulas: {
+                    'M1': 'L->U+r->dr',
+                    'M2': 'd->c',
+                    'M3': 'r->d',
+                    'M4': 'u->c',
+                    'M5': 'l->ul+R->D'
+                },
+                moves: [
+                    "UL,UR,DR/DL:M2/UR:M1",
+                    "UR,DR/UL:M3/UR:U->L",
+                    "DR/UL:UL->U/DR:C->U",
+                    "UL,DL,DR/DL:M5/UR:M4",
                     "UL,DL/UL:D->R/-",
                     "UL,DL/-/UR:UR->DL",
                     "UL/UL:C->R/UR:DR->R",
@@ -1633,9 +1654,9 @@
 
         // 【共通】画面上の時計座標マップ
         const VISUAL_COORD_MAP = {
-            'UL': [21, 21], 'U': [50, 21], 'UR': [79, 21],
-            'L': [21, 50], 'C': [50, 50], 'R': [79, 50],
-            'DL': [21, 79], 'D': [50, 79], 'DR': [79, 79]
+            'UL': [21, 21], 'U': [49, 21], 'UR': [79, 21],
+            'L': [21, 49], 'C': [49, 49], 'R': [79, 49],
+            'DL': [21, 79], 'D': [49, 79], 'DR': [79, 79]
         };
 
         // 【共通】始点と終点の名前から、矢印を描画する座標を計算する関数
@@ -1892,19 +1913,18 @@
             label.style.position = 'absolute';
 
             // ズレ幅（オフセット）を小さくして、ダイヤルのフチに乗るように調整
-            let offset = 20;
             let offsetX = 0;
             let offsetY = 0;
 
-            if (dialName.includes('L')) offsetX = -offset;
-            if (dialName.includes('R')) offsetX = offset;
-            if (dialName.includes('U')) offsetY = -offset;
-            if (dialName.includes('D')) offsetY = offset;
+            if (dialName.includes('L')) offsetX = -20;
+            if (dialName.includes('R')) offsetX = 20;
+            if (dialName.includes('U')) offsetY = -50;
+            if (dialName.includes('D')) offsetY = 50;
 
             // 計算したオフセットを適用
             label.style.left = `calc(${rawCoord[0]}% + ${offsetX}px)`;
             label.style.top = `calc(${rawCoord[1]}% + ${offsetY}px)`;
-            label.style.transform = 'translate(-50%, -20%)';
+            label.style.transform = 'translate(-50%, -8%)';
 
             label.style.color = color;
             label.style.fontWeight = '900';
