@@ -416,6 +416,7 @@
                 <option value="7sfndmw6lm">7sfndmw6lm</option>
                 <option value="bpaul">bpaul</option>
                 <option value="bpaul_x2">bpaul(x2)</option>
+                <option value="tommy">Tommy</option>
             </select>
         </div>
         <div class="solution-controls">
@@ -503,7 +504,27 @@
                     "UL/UL:C->R/UR:DR->R",
                     "UL,DR/UL:C->12/UR:UR->12"
                 ]
-            }
+            },
+            'tommy': {
+                mode: 'x2',
+                formulas: {
+                    'M1': 'd->c',
+                    'M2': 'r->dr+L->U',
+                    'M3': 'U->L',
+                    'M4': 'r->d',
+                    'M5': 'U->UR+D->C+ul->l+r',
+                    'M6': 'c->u+d+L->UL+R->DR',
+                },
+                moves: [
+                    "UL,UR,DR/DL:M1/UR:M2",
+                    "UR,DR/UL:M4/UR:M3",
+                    "DR/UL:UL->U/DR:C->U",
+                    "UL,DR/UL:M5/UR:M6",
+                    "UL/UL:C->D/UR:DL->D",
+                    "UL,DL/UL:C->R/UR:DR->R",
+                    "UL,DL,DR/UL:C->12/UR:UR->12"
+                ]
+            },
         };
 
         // --- グローバル定数 ---
@@ -1334,8 +1355,14 @@
                 const parts = formula.split('+');
                 let total = 0;
                 parts.forEach(part => {
-                    const [start, end] = part.split('->');
-                    total = (total + getDelta(start, end)) % 12;
+                    if (part.includes('->')) {
+                        const [start, end] = part.split('->');
+                        total = (total + getDelta(start, end)) % 12;
+                    }
+                    else {
+                        const single = getPhysicalIdForMn(part);
+                        total = (total + state.clocks[single] || 0) % 12;
+                    }
                 });
                 state.mValues[mKey] = total;
             });
