@@ -1735,18 +1735,55 @@
             const parts = formula.split('+');
 
             parts.forEach((part, index) => {
-                const [start, end] = part.split('->');
-                if (!start || !end) return;
+                // 「->」が含まれる場合（これまで通りの矢印を描画）
+                if (part.includes('->')) {
+                    const [start, end] = part.split('->');
+                    if (!start || !end) return;
 
-                const isBack = start === start.toLowerCase();
-                const face = isBack ? 'B' : 'F';
-                const board = document.getElementById(face === 'F' ? 'board-front' : 'board-back');
-                if (!board) return;
+                    const isBack = start === start.toLowerCase();
+                    const face = isBack ? 'B' : 'F';
+                    const board = document.getElementById(face === 'F' ? 'board-front' : 'board-back');
+                    if (!board) return;
 
-                const pts = calculateArrowPoints(start.toUpperCase(), end.toUpperCase(), false);
-                if (pts) {
-                    // 紫色で描画
-                    drawArrow(board, pts.startPt, pts.endPt, '#9c36b5', `mn-${index}`, 'mn-arrow-temp');
+                    const pts = calculateArrowPoints(start.toUpperCase(), end.toUpperCase(), false);
+                    if (pts) {
+                        // 紫色で描画
+                        drawArrow(board, pts.startPt, pts.endPt, '#9c36b5', `mn-${index}`, 'mn-arrow-temp');
+                    }
+                } else {
+                    // 「->」が含まれない単一の時計指定の場合（時計を丸でハイライト）
+                    const clockName = part.trim();
+                    if (!clockName) return;
+
+                    const isBack = clockName === clockName.toLowerCase();
+                    const face = isBack ? 'B' : 'F';
+                    const board = document.getElementById(face === 'F' ? 'board-front' : 'board-back');
+                    if (!board) return;
+
+                    // 見た目上の座標を取得
+                    const rawCoord = VISUAL_COORD_MAP[clockName.toUpperCase()];
+                    if (!rawCoord) return;
+
+                    const svgNS = "http://www.w3.org/2000/svg";
+                    const circleSvg = document.createElementNS(svgNS, "svg");
+                    circleSvg.setAttribute("class", "solve-arrow-svg mn-arrow-temp");
+                    circleSvg.setAttribute("viewBox", "0 0 100 100");
+                    circleSvg.style.pointerEvents = "none";
+
+                    // 対象の時計を囲む円(circle)を生成
+                    const circle = document.createElementNS(svgNS, "circle");
+                    circle.setAttribute("cx", `${rawCoord[0]}`);
+                    circle.setAttribute("cy", `${rawCoord[1]}`);
+                    circle.setAttribute("r", "12.5"); // 時計をちょうど囲むくらいの半径
+                    circle.setAttribute("fill", "none");
+
+                    // 矢印と同じ太さと色で描画
+                    circle.style.setProperty('stroke', '#9c36b5', 'important');
+                    circle.style.setProperty('stroke-width', '3', 'important');
+                    circle.style.setProperty('opacity', '0.8', 'important');
+
+                    circleSvg.appendChild(circle);
+                    board.appendChild(circleSvg);
                 }
             });
         }
