@@ -424,22 +424,7 @@
             <button class="btn-ctrl" onclick="solveNext()">▶</button>
             <button class="btn-ctrl" onclick="solveLast()">▶|</button>
         </div>
-        <div class="solution-container">
-            1.C-&gt;U:DR:DR
-            2.C-&gt;R:UL:UL
-            3.C-&gt;L:UR:UR
-            4.C-&gt;D:UL,UR:UL
-            5.C-&gt;12:UL,UR,DR:UR
-            6.y2
-            7.C-&gt;U:DR:DR
-            8.C-&gt;R:UL:UL
-            9.C-&gt;L:UR:UR
-            10.C-&gt;D:UL,UR:UL
-            11.C-&gt;DL:UL,UR,DR:UR
-            12.C-&gt;DR:UL,UR,DL:UL
-            13.C-&gt;UL:UR,DR,DL:UR
-            14.C-&gt;UR:UL,DR,DL:UL
-            15.C-&gt;12:UL,UR,DR,DL:UR</div>
+        <div class="solution-container"></div>
         <div id="solve-debug"
             style="background: #fff5f5; border: 1px solid #ffa8a8; border-radius: 10px; padding: 10px; margin-bottom: 20px; font-family: monospace; font-size: 12px; text-align: left; color: #c92a2a; line-height: 1.4;">
             DEBUG: [未開始] Face: F, X(Amount): -, Y(Pins): -, Z(Dial): -, F(Flip): -
@@ -492,7 +477,7 @@
                     "UL,UR,DR/DL:M2/UR:M1",
                     "UR,DR/UL:M3/UR:U->L",
                     "DR/UL:UL->U/DR:C->U",
-                    "UL,DL,DR/DL:M4/UR:M5",
+                    "UL,DL,DR/UL:M4/UR:M5",
                     "UL,DL/UL:D->R/-",
                     "UL,DL/-/UR:UR->DL",
                     "UL/UL:C->R/UR:DR->R",
@@ -512,7 +497,7 @@
                     "UL,UR,DR/DL:M2/UR:M1",
                     "UR,DR/UL:M3/UR:U->L",
                     "DR/UL:UL->U/DR:C->U",
-                    "UL,DL,DR/DL:M5/UR:M4",
+                    "UL,DL,DR/UL:M5/UR:M4",
                     "UL,DL/UL:D->R/-",
                     "UL,DL/-/UR:UR->DL",
                     "UL/UL:C->R/UR:DR->R",
@@ -520,6 +505,13 @@
                 ]
             }
         };
+
+        // --- グローバル定数 ---
+        // x2モードの時の位置ローテーションマップ（5箇所で重複していたものを統合）
+        const X2_ROTATE = { 'UL': 'DR', 'UR': 'DL', 'DL': 'UR', 'DR': 'UL', 'U': 'D', 'D': 'U', 'L': 'R', 'R': 'L', 'C': 'C' };
+        // 裏面ピンの表面への対応マップ（2箇所で重複していたものを統合）
+        const BACK_PIN_MAP = { 'UL': 'UR', 'UR': 'UL', 'DL': 'DR', 'DR': 'DL' };
+
         let savedMethod = localStorage.getItem('savedSolveMethod');
         if (!savedMethod || !SOLVE_METHODS[savedMethod]) {
             savedMethod = 'flip';
@@ -541,6 +533,52 @@
         // 配列の初期化も、保存された解法をベースに行う
         state.solveMoves = SOLVE_METHODS[state.currentMethod].moves;
         state.solveAmounts = new Array(state.solveMoves.length).fill(null).map(() => ({ left: 0, right: 0 }));
+
+        // --- 共通ユーティリティ関数 ---
+
+        // 指定インデックスまでのsolve手順での「現在の面」と「最後のフリップモード」を計算する
+        // updateCurrentSolveFace() と getCurrentFlipType() の重複ロジックを統合
+        function getSolveFaceAndFlipAtIndex(index) {
+            let face = 'F', lastFlip = 'y2';
+            for (let i = 0; i <= index; i++) {
+                const m = state.solveMoves[i];
+                if (m === 'y2' || m === 'x2') {
+                    face = face === 'F' ? 'B' : 'F';
+                    lastFlip = m;
+                }
+            }
+            return { face, lastFlip };
+        }
+
+        // ピン状態を面に応じて state.pins に適用する（2箇所で重複していたロジックを統合）
+        function applyPinsToState(upPinNames, face) {
+            if (face === 'F') {
+                Object.keys(state.pins).forEach(p => { state.pins[p] = upPinNames.includes(p); });
+            } else {
+                Object.keys(state.pins).forEach(p => state.pins[p] = true);
+                upPinNames.forEach(backPin => {
+                    const frontPin = BACK_PIN_MAP[backPin];
+                    if (frontPin) state.pins[frontPin] = false;
+                });
+            }
+        }
+
+        // 左手・右手の操作情報リストを生成する（3箇所で重複していた構築コードを統合）
+        function buildOpInfoList(leftOpStr, rightOpStr) {
+            return [
+                { type: 'left', op: leftOpStr, label: '左手', color: COLORS.leftHand },
+                { type: 'right', op: rightOpStr, label: '右手', color: COLORS.rightHand }
+            ];
+        }
+
+        // デバッグ表示を「未開始」状態にリセットする（4箇所で重複していた設定を統合）
+        function setDebugToIdle() {
+            const debugEl = document.getElementById('solve-debug');
+            if (debugEl) {
+                debugEl.innerHTML = 'DEBUG: [未開始] Face: F, X(Amount): -, Y(Pins): -, Z(Dial): -, F(Flip): -'
+                    + getMValuesDebugString();
+            }
+        }
 
         function initDataState() {
             state.visualAngles = {};
@@ -861,10 +899,7 @@
                     const mainParts = move.split('/');
                     if (mainParts.length >= 3) {
                         const pinStr = mainParts[0];
-                        const opInfoList = [
-                            { type: 'left', op: mainParts[1], opIdx: 0, label: '左手', color: COLORS.leftHand },
-                            { type: 'right', op: mainParts[2], opIdx: 1, label: '右手', color: COLORS.rightHand }
-                        ];
+                        const opInfoList = buildOpInfoList(mainParts[1], mainParts[2]);
 
                         drawSolveVisuals(pinStr, opInfoList);
 
@@ -1352,33 +1387,15 @@
             document.querySelectorAll('.pin-highlight-ring, .solve-arrow-svg, .arc-indicator').forEach(el => el.remove());
 
             renderSolutionHTML();
-            const debugEl = document.getElementById('solve-debug');
-            if (debugEl) {
-                // 【修正】末尾にM値の文字列を結合
-                debugEl.innerHTML = `DEBUG: [未開始] Face: F, X(Amount): -, Y(Pins): -, Z(Dial): -, F(Flip): -` + getMValuesDebugString();
-            }
+            setDebugToIdle();
         }
 
         function getCurrentFlipType() {
-            let lastFlip = 'y2'; // デフォルト
-            for (let i = 0; i <= state.currentSolveIndex; i++) {
-                const move = state.solveMoves[i];
-                if (move === 'y2' || move === 'x2') {
-                    lastFlip = move;
-                }
-            }
-            return lastFlip;
+            return getSolveFaceAndFlipAtIndex(state.currentSolveIndex).lastFlip;
         }
 
         function updateCurrentSolveFace() {
-            let flipCount = 0;
-            for (let i = 0; i <= state.currentSolveIndex; i++) {
-                const move = state.solveMoves[i];
-                if (move === 'y2' || move === 'x2') {
-                    flipCount++;
-                }
-            }
-            state.currentSolveFace = (flipCount % 2 === 1) ? 'B' : 'F';
+            state.currentSolveFace = getSolveFaceAndFlipAtIndex(state.currentSolveIndex).face;
         }
         function applySolveMoveAt(index, isForward) {
             if (index < 0 || index >= state.solveMoves.length) return;
@@ -1410,25 +1427,10 @@
                 'DL': `${face}02`, 'D': `${face}12`, 'DR': `${face}22`
             };
             const dialMap = { 'UL': `${face}00`, 'UR': `${face}20`, 'DL': `${face}02`, 'DR': `${face}22` };
-            const backPinMap = { 'UL': 'UR', 'UR': 'UL', 'DL': 'DR', 'DR': 'DL' };
-
-            const x2Rotate = { 'UL': 'DR', 'UR': 'DL', 'DL': 'UR', 'DR': 'UL', 'U': 'D', 'D': 'U', 'L': 'R', 'R': 'L', 'C': 'C' };
             const isX2Step = (face === 'B' && lastFlip === 'x2');
 
-            const internalUpPins = pinStr.split(',').map(p => {
-                if (p && isX2Step) return x2Rotate[p] || p;
-                return p;
-            });
-
-            if (face === 'F') {
-                Object.keys(state.pins).forEach(p => { state.pins[p] = internalUpPins.includes(p); });
-            } else {
-                Object.keys(state.pins).forEach(p => state.pins[p] = true);
-                internalUpPins.forEach(backPin => {
-                    const frontPin = backPinMap[backPin];
-                    if (frontPin) state.pins[frontPin] = false;
-                });
-            }
+            const internalUpPins = pinStr.split(',').map(p => (p && isX2Step) ? X2_ROTATE[p] || p : p);
+            applyPinsToState(internalUpPins, face);
 
             if (isForward) {
                 state.solveAmounts[index] = { left: 0, right: 0 };
@@ -1437,11 +1439,7 @@
             const debugOpLines = [];
             const axisIds = { left: null, right: null };
 
-            // 【修正】opIdxを廃止し、type ('left' / 'right') だけで完全管理
-            const opInfoList = [
-                { type: 'left', op: leftOpStr, label: '左手', color: COLORS.leftHand },
-                { type: 'right', op: rightOpStr, label: '右手', color: COLORS.rightHand }
-            ];
+            const opInfoList = buildOpInfoList(leftOpStr, rightOpStr);
 
             const processList = isForward ? opInfoList : [...opInfoList].reverse();
             processList.forEach(info => {
@@ -1452,7 +1450,7 @@
 
                 const dialStr = opParts[0];
                 const targetCalc = opParts[1];
-                const internalDial = isX2Step ? (x2Rotate[dialStr] || dialStr) : dialStr;
+                const internalDial = isX2Step ? (X2_ROTATE[dialStr] || dialStr) : dialStr;
 
                 let amount = 0;
                 if (isForward) {
@@ -1465,8 +1463,8 @@
                             let destName = calcMatch[2];
 
                             if (isX2Step) {
-                                targetName = x2Rotate[targetName] || targetName;
-                                if (destName !== '12') destName = x2Rotate[destName] || destName;
+                                targetName = X2_ROTATE[targetName] || targetName;
+                                if (destName !== '12') destName = X2_ROTATE[destName] || destName;
                             }
 
                             const currentTarget = state.clocks[clockMap[targetName]] || 0;
@@ -1541,41 +1539,10 @@
                     }
                 }
 
-                // ★追加：ピン操作が行われた「その手時点での面 (F/B)」を正確に計算する
-                let face = 'F';
-                for (let i = 0; i <= targetIndex; i++) {
-                    if (state.solveMoves[i] === 'y2' || state.solveMoves[i] === 'x2') {
-                        face = face === 'F' ? 'B' : 'F';
-                    }
-                }
-
-                // ★追加：ピン操作が行われた「その手時点でのフリップモード」を計算する
-                let lastFlip = state.flipMode;
-                for (let i = 0; i <= targetIndex; i++) {
-                    if (state.solveMoves[i] === 'y2' || state.solveMoves[i] === 'x2') {
-                        lastFlip = state.solveMoves[i];
-                    }
-                }
-
+                const { face, lastFlip } = getSolveFaceAndFlipAtIndex(targetIndex);
                 const isX2Step = (face === 'B' && lastFlip === 'x2');
-                const x2Rotate = { 'UL': 'DR', 'UR': 'DL', 'DL': 'UR', 'DR': 'UL' };
-
-                const upPins = targetPinStr.split(',').map(p => {
-                    if (p && isX2Step) return x2Rotate[p] || p;
-                    return p;
-                }).filter(p => p);
-
-                // 取得した「当時の面」を基準にして物理ピンを上げ下げする
-                if (face === 'F') {
-                    Object.keys(state.pins).forEach(p => { state.pins[p] = upPins.includes(p); });
-                } else {
-                    const backPinMap = { 'UL': 'UR', 'UR': 'UL', 'DL': 'DR', 'DR': 'DL' };
-                    Object.keys(state.pins).forEach(p => state.pins[p] = true);
-                    upPins.forEach(backPin => {
-                        const frontPin = backPinMap[backPin];
-                        if (frontPin) state.pins[frontPin] = false;
-                    });
-                }
+                const upPins = targetPinStr.split(',').map(p => (p && isX2Step) ? X2_ROTATE[p] || p : p).filter(p => p);
+                applyPinsToState(upPins, face);
                 return;
             }
 
@@ -1596,9 +1563,7 @@
             renderSolutionHTML();
             renderAllDisplays(false);
             document.querySelectorAll('.pin-highlight-ring, .solve-arrow-svg').forEach(el => el.remove());
-            const debugEl = document.getElementById('solve-debug');
-            // 【修正】末尾にM値の文字列を結合
-            if (debugEl) debugEl.innerHTML = `DEBUG: [未開始] Face: F, X(Amount): -, Y(Pins): -, Z(Dial): -, F(Flip): -` + getMValuesDebugString();
+            setDebugToIdle();
         }
 
         function solvePrev() {
@@ -1615,18 +1580,12 @@
                     const curMove = state.solveMoves[state.currentSolveIndex];
                     if (curMove !== 'y2' && curMove !== 'x2') {
                         const mainParts = curMove.split('/');
-                        const opInfoList = [
-                            { type: 'left', op: mainParts[1], color: '#f06595' },
-                            { type: 'right', op: mainParts[2], color: '#339af0' }
-                        ];
-                        drawSolveVisuals(mainParts[0], opInfoList);
+                        drawSolveVisuals(mainParts[0], buildOpInfoList(mainParts[1], mainParts[2]));
                     }
                 } else {
                     drawArcIndicators([]);
                     document.querySelectorAll('.pin-highlight-ring, .solve-arrow-svg').forEach(el => el.remove());
-                    const debugEl = document.getElementById('solve-debug');
-                    // 【修正】末尾にM値の文字列を結合
-                    if (debugEl) debugEl.innerHTML = `DEBUG: [未開始] Face: F, X(Amount): -, Y(Pins): -, Z(Dial): -, F(Flip): -` + getMValuesDebugString();
+                    setDebugToIdle();
                 }
                 renderSolutionHTML();
                 renderAllDisplays(false, false);
@@ -1654,9 +1613,9 @@
 
         // 【共通】画面上の時計座標マップ
         const VISUAL_COORD_MAP = {
-            'UL': [21, 21], 'U': [49, 21], 'UR': [79, 21],
-            'L': [21, 49], 'C': [49, 49], 'R': [79, 49],
-            'DL': [21, 79], 'D': [49, 79], 'DR': [79, 79]
+            'UL': [21, 21], 'U': [49.5, 21], 'UR': [79, 21],
+            'L': [21, 49.5], 'C': [49.5, 49.5], 'R': [79, 49.5],
+            'DL': [21, 79], 'D': [49.5, 79], 'DR': [79, 79]
         };
 
         // 【共通】始点と終点の名前から、矢印を描画する座標を計算する関数
@@ -1665,7 +1624,7 @@
             if (!rawStart) return null;
 
             if (endName === '12') {
-                const noonMargin = 11;
+                const noonMargin = 8;
                 const endPt = [rawStart[0], rawStart[1] + (isBackAndX2 ? noonMargin : -noonMargin)];
                 return { startPt: rawStart, endPt: endPt };
             }
@@ -1781,7 +1740,6 @@
             const isBack = (face === 'B');
             const lastFlip = getCurrentFlipType();
             const shouldRotate = isBack && (state.flipMode !== lastFlip);
-            const x2Rotate = { 'UL': 'DR', 'UR': 'DL', 'DL': 'UR', 'DR': 'UL' };
             const pinPos = { 'UL': ['36%', '36%'], 'UR': ['64%', '36%'], 'DL': ['36%', '64%'], 'DR': ['64%', '64%'] };
 
             const currentLogicalPins = { UL: false, UR: false, DL: false, DR: false };
@@ -1795,7 +1753,7 @@
             Object.keys(currentLogicalPins).forEach(p => {
                 if (currentLogicalPins[p] === prevLogicalPins[p]) return;
 
-                const visualPin = shouldRotate ? x2Rotate[p] : p;
+                const visualPin = shouldRotate ? X2_ROTATE[p] : p;
                 const pos = pinPos[visualPin];
                 if (!pos) return;
 
@@ -1872,7 +1830,6 @@
             const isBack = (face === 'B');
             const lastFlip = getCurrentFlipType();
             const shouldRotate = isBack && (state.flipMode !== lastFlip);
-            const x2Rotate = { 'UL': 'DR', 'UR': 'DL', 'DL': 'UR', 'DR': 'UL', 'U': 'D', 'D': 'U', 'L': 'R', 'R': 'L', 'C': 'C' };
 
             opInfoList.forEach(info => {
                 if (!info.op || info.op === '-') return;
@@ -1886,8 +1843,8 @@
 
                 if (calcMatch) {
                     // 通常の「A->B」の矢印描画
-                    const vStart = shouldRotate ? (x2Rotate[calcMatch[1]] || calcMatch[1]) : calcMatch[1];
-                    const vEnd = shouldRotate ? (x2Rotate[calcMatch[2]] || calcMatch[2]) : calcMatch[2];
+                    const vStart = shouldRotate ? (X2_ROTATE[calcMatch[1]] || calcMatch[1]) : calcMatch[1];
+                    const vEnd = shouldRotate ? (X2_ROTATE[calcMatch[2]] || calcMatch[2]) : calcMatch[2];
                     const isBackAndX2 = isBack && state.flipMode === 'x2';
 
                     const pts = calculateArrowPoints(vStart, vEnd, isBackAndX2);
@@ -1896,7 +1853,7 @@
                     }
                 } else if (state.mFormulas && state.mFormulas[targetCalc]) {
                     // 【追加】M1〜M6 等の変数の場合、ダイヤル付近に文字ラベルを描画する
-                    const vDial = shouldRotate ? (x2Rotate[dialStr] || dialStr) : dialStr;
+                    const vDial = shouldRotate ? (X2_ROTATE[dialStr] || dialStr) : dialStr;
                     drawMnLabel(board, vDial, targetCalc, info.color);
                 }
             });
