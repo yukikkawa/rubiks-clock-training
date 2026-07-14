@@ -354,18 +354,80 @@
             transform-origin: 50px 50px;
             transition: transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
         }
+
+        /* トレーニング・タイマー周りのスタイル */
+        .training-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            margin: 20px 0 10px 0;
+        }
+
+        .training-toggle-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .switch-base.training-active {
+            background-color: #adb5bd;
+            border-color: #868e96;
+        }
+
+        .timer-display {
+            font-size: 46px;
+            font-family: monospace;
+            font-weight: 500;
+            color: #000;
+            width: 140px;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background-color: #228be6;
+            color: white;
+            font-size: 22px;
+            font-weight: bold;
+            padding: 10px 0;
+            width: 140px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(34, 139, 230, 0.25);
+            transition: background-color 0.1s;
+        }
+
+        .btn-primary:active {
+            background-color: #1c7ed6;
+        }
+
+        .btn-primary.btn-end {
+            background-color: #fa5252;
+            box-shadow: 0 4px 12px rgba(250, 82, 82, 0.25);
+        }
+
+        .btn-primary.btn-end:active {
+            background-color: #e03131;
+        }
+
+        .bottom-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 25px;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 
 <body>
-
     <div id="app">
         <h2>7-Simul 盤面シミュレータ</h2>
-        <div id="scramble-text" class="scramble-container">
-            ここにスクランブルが表示されます
-        </div>
-        <div class="control-panel" id="main-control-panel">
-            <button class="btn-scramble" onclick="generateScrambleText()">Scramble</button>
+        <div id="scramble-text" class="scramble-container">ここにスクランブルが表示されます</div>
+
+        <div class="control-panel" id="main-control-panel" style="justify-content: flex-end;">
             <button id="toggle-scramble-btn" class="btn-ctrl" style="flex: 0 0 44px; font-size: 14px;"
                 onclick="toggleScrambleControls()">▼</button>
         </div>
@@ -384,50 +446,57 @@
                 <div class="board-title">表 (Front)</div>
                 <div id="board-front" class="clock-board"></div>
             </div>
-
             <div class="board-container">
                 <div class="board-title">裏 (Back)</div>
                 <div id="board-back" class="clock-board"></div>
             </div>
         </div>
 
-        <div class="toggle-container">
-            <svg id="icon-y2" class="axis-icon" viewBox="0 0 60 60" onclick="setFlipMode('y2')">
-                <circle cx="30" cy="30" r="18" fill="none" stroke="#000" stroke-width="3" />
-                <line x1="30" y1="5" x2="30" y2="12" stroke="#000" stroke-width="3" stroke-linecap="round" />
-                <line x1="30" y1="48" x2="30" y2="55" stroke="#000" stroke-width="3" stroke-linecap="round" />
-                <text x="30" y="36" font-size="18" font-weight="bold" font-family="sans-serif"
-                    text-anchor="middle">y2</text>
-            </svg>
+        <div class="training-bar">
+            <div class="training-toggle-wrapper">
+                <div id="training-switch" class="switch-base" onclick="toggleTrainingMode()">
+                    <div class="switch-knob"></div>
+                </div>
+                <div style="font-size: 14px; font-weight: bold; color: #868e96; margin-top: 6px;">Training</div>
+            </div>
+            <div id="timer-display" class="timer-display">00.00</div>
+            <button id="primary-action-btn" class="btn-primary" onclick="handlePrimaryAction()">Scramble</button>
+        </div>
 
-            <div id="toggle-switch" class="switch-base" onclick="toggleFlipModeSwitch()">
-                <div class="switch-knob"></div>
+        <div id="mn-display-area" style="display: none;"></div>
+
+        <div class="bottom-controls">
+            <div class="solve-method-selector" style="margin: 0;">
+                <label for="solve-method" style="font-size: 14px; color: #495057; font-weight: bold;">解法: </label>
+                <select id="solve-method" onchange="changeSolveMethod(this.value)">
+                    <option value="flip">Flip</option>
+                    <option value="10mm">10MM (10 Moves Memoless)</option>
+                    <option value="7sfndmw6lm">7sfndmw6lm</option>
+                    <option value="bpaul">bpaul</option>
+                    <option value="bpaul_x2">bpaul(x2)</option>
+                    <option value="tommy">Tommy</option>
+                </select>
             </div>
 
-            <svg id="icon-x2" class="axis-icon inactive" viewBox="0 0 60 60" onclick="setFlipMode('x2')">
-                <circle cx="30" cy="30" r="18" fill="none" stroke="#000" stroke-width="3" />
-                <line x1="5" y1="30" x2="12" y2="30" stroke="#000" stroke-width="3" stroke-linecap="round" />
-                <line x1="48" y1="30" x2="55" y2="30" stroke="#000" stroke-width="3" stroke-linecap="round" />
-                <text x="30" y="36" font-size="18" font-weight="bold" font-family="sans-serif"
-                    text-anchor="middle">x2</text>
-            </svg>
-        </div>
-        <div class="solve-method-selector">
-            <label for="solve-method" style="font-size: 14px; color: #495057; font-weight: bold;">解法: </label>
-            <select id="solve-method" onchange="changeSolveMethod(this.value)">
-                <option value="flip">Flip</option>
-                <option value="10mm">10MM (10 Moves Memoless)</option>
-                <option value="7sfndmw6lm">7sfndmw6lm</option>
-                <option value="bpaul">bpaul</option>
-                <option value="bpaul_x2">bpaul(x2)</option>
-                <option value="tommy">Tommy</option>
-            </select>
-        </div>
-        <div class="solution-controls">
-            <button class="btn-ctrl" onclick="solveFirst()">|◀</button>
-            <button class="btn-ctrl" onclick="solvePrev()">◀</button>
-            <button class="btn-ctrl" onclick="solveNext()">▶</button>
-            <button class="btn-ctrl" onclick="solveLast()">▶|</button>
+            <div class="toggle-container" style="margin: 0;">
+                <svg id="icon-y2" class="axis-icon" viewBox="0 0 60 60" onclick="setFlipMode('y2')">
+                    <circle cx="30" cy="30" r="18" fill="none" stroke="#000" stroke-width="3" />
+                    <line x1="30" y1="5" x2="30" y2="12" stroke="#000" stroke-width="3" stroke-linecap="round" />
+                    <line x1="30" y1="48" x2="30" y2="55" stroke="#000" stroke-width="3" stroke-linecap="round" />
+                    <text x="30" y="36" font-size="18" font-weight="bold" font-family="sans-serif"
+                        text-anchor="middle">y2</text>
+                </svg>
+                <div id="toggle-switch" class="switch-base" onclick="toggleFlipModeSwitch()">
+                    <div class="switch-knob"></div>
+                </div>
+                <svg id="icon-x2" class="axis-icon inactive" viewBox="0 0 60 60" onclick="setFlipMode('x2')">
+                    <circle cx="30" cy="30" r="18" fill="none" stroke="#000" stroke-width="3" />
+                    <line x1="5" y1="30" x2="12" y2="30" stroke="#000" stroke-width="3" stroke-linecap="round" />
+                    <line x1="48" y1="30" x2="55" y2="30" stroke="#000" stroke-width="3" stroke-linecap="round" />
+                    <text x="30" y="36" font-size="18" font-weight="bold" font-family="sans-serif"
+                        text-anchor="middle">x2</text>
+                </svg>
+            </div>
         </div>
         <div class="solution-container"></div>
         <div id="solve-debug"
@@ -553,7 +622,9 @@
             solveMoves: [],
             mValues: {},
             mFormulas: {},
-            currentMethod: savedMethod
+            currentMethod: savedMethod,
+            isTrainingMode: false,  // 【追加】
+            isTimerRunning: false   // 【追加】
         };
         // 配列の初期化も、保存された解法をベースに行う
         state.solveMoves = SOLVE_METHODS[state.currentMethod].moves;
@@ -1047,24 +1118,70 @@
             updateSolveButtonsState();
             analyzeMethodCalculations();
         }
-        // 【追加】スクランブル操作ボタンの表示・非表示を切り替える関数
         function toggleScrambleControls() {
             const area = document.getElementById('scramble-controls-area');
             const btn = document.getElementById('toggle-scramble-btn');
-            const panel = document.getElementById('main-control-panel');
 
             if (area.style.display === 'none') {
-                // 開くときの処理
                 area.style.display = 'block';
                 btn.innerText = '▲';
-                panel.style.marginBottom = '10px'; // ボタンとの隙間を詰める
             } else {
-                // 閉じるときの処理
                 area.style.display = 'none';
                 btn.innerText = '▼';
-                panel.style.marginBottom = '20px'; // 元の余白に戻す
             }
         }
+
+        function toggleTrainingMode() {
+            if (state.isTimerRunning) return;
+            state.isTrainingMode = !state.isTrainingMode;
+
+            const sw = document.getElementById('training-switch');
+            const btn = document.getElementById('primary-action-btn');
+            const timer = document.getElementById('timer-display');
+
+            if (state.isTrainingMode) {
+                sw.classList.add('training-active');
+                btn.innerText = 'START';
+                timer.innerText = '00.00';
+            } else {
+                sw.classList.remove('training-active');
+                btn.innerText = 'Scramble';
+                timer.innerText = '00.00';
+            }
+        }
+
+        function handlePrimaryAction() {
+            if (!state.isTrainingMode) {
+                // 通常モード
+                generateScrambleText();
+            } else {
+                // トレーニングモード
+                if (!state.isTimerRunning) {
+                    generateScrambleText();
+                    state.isTimerRunning = true;
+                    document.getElementById('primary-action-btn').innerText = 'END';
+                    document.getElementById('primary-action-btn').classList.add('btn-end');
+                    startTime = Date.now();
+                    timerInterval = setInterval(updateTimer, 10);
+                    renderMnDisplay();
+                } else {
+                    state.isTimerRunning = false;
+                    clearInterval(timerInterval);
+                    document.getElementById('primary-action-btn').innerText = 'START';
+                    document.getElementById('primary-action-btn').classList.remove('btn-end');
+                    renderMnDisplay();
+                }
+            }
+        }
+
+        function updateTimer() {
+            const elapsed = Date.now() - startTime;
+            const secs = Math.floor(elapsed / 1000);
+            const centis = Math.floor((elapsed % 1000) / 10);
+            document.getElementById('timer-display').innerText =
+                String(secs).padStart(2, '0') + '.' + String(centis).padStart(2, '0');
+        }
+
         function renderScrambleHTML() {
             const container = document.getElementById('scramble-text');
             if (!container) return;
@@ -1330,59 +1447,46 @@
 
             clearMnArrows();
         }
-
-        // 【修正】UIを描画する関数（数字をメインにした大きなデザインに変更）
+        // 【修正】UIを描画する関数（タイマー時の ? マスク処理を追加）
         function renderMnDisplay() {
-            const container = ensureMnDisplayContainer();
+            const container = document.getElementById('mn-display-area');
             if (!container) return;
 
             const methodData = SOLVE_METHODS[state.currentMethod];
             if (!methodData || !methodData.formulas) {
+                container.innerHTML = '';
                 container.style.display = 'none';
                 return;
             }
 
             container.style.display = 'block';
-            container.style.margin = '15px 0';
-            container.style.padding = '20px 20px 15px 20px';
-            container.style.backgroundColor = '#f8f9fa';
-            container.style.border = '1px solid #dee2e6';
-            container.style.borderRadius = '10px';
-            container.style.textAlign = 'center';
-            container.style.position = 'relative'; // 左上の絶対配置の基準にするため
+            container.style.margin = '10px 0 20px 0';
+            container.style.padding = '0'; // 白背景や枠線をなくし、直接数字を並べる
 
-            const mode = methodData.mode;
-
-            // 左上の mode 表示
-            let html = `<div style="position: absolute; top: 12px; left: 15px; font-weight: bold; font-size: 14px; color: #495057;">mode: <span style="color:#e64980">${mode}</span></div>`;
-
-            // 中央の大きな数字群（フレックスボックスで横並び）
-            html += `<div style="display: flex; justify-content: center; gap: 15px; font-size: 44px; font-weight: 900; color: #000; margin-top: 5px; margin-bottom: 5px; font-family: sans-serif;">`;
+            let html = `<div style="display: flex; justify-content: center; gap: 20px; font-size: 46px; font-weight: 900; color: #000; font-family: sans-serif;">`;
 
             Object.keys(state.mFormulas).forEach(key => {
                 const formula = state.mFormulas[key];
                 let val = state.mValues[key];
-
-                // 0〜11 の値をクロック特有の -5〜+6 表記に変換する
                 if (val > 6) val -= 12;
 
-                // 各数字を囲む span（ホバーやタップでイベント発火）
+                // タイマー作動中なら「?」、それ以外なら計算された数字
+                const displayStr = state.isTimerRunning ? '?' : val;
+                const pointerStyle = state.isTimerRunning ? 'default' : 'pointer';
+                const interactions = state.isTimerRunning ? '' :
+                    `onmouseenter="handleMnEnter(this)" onmouseleave="handleMnLeave(this)" ontouchstart="handleMnEnter(this)" ontouchend="handleMnLeave(this)"`;
+
                 html += `<span class="mn-value-item" 
                             data-formula="${key} = ${formula}" 
                             data-raw-formula="${formula}" 
-                            style="cursor: pointer; padding: 0 4px; border-bottom: 5px solid transparent;"
-                            onmouseenter="handleMnEnter(this)"
-                            onmouseleave="handleMnLeave(this)"
-                            ontouchstart="handleMnEnter(this)"
-                            ontouchend="handleMnLeave(this)">
-                            ${val}
+                            style="cursor: ${pointerStyle}; padding: 0 4px; border-bottom: 5px solid transparent;"
+                            ${interactions}>
+                            ${displayStr}
                         </span>`;
             });
 
             html += `</div>`;
-
-            // ホバー時に数式を表示するスペース（高さ固定にしてレイアウトのガタつきを防ぐ）
-            html += `<div id="mn-formula-display" style="height: 20px; font-size: 20px; font-weight: normal; color: #000;"></div>`;
+            html += `<div id="mn-formula-display" style="height: 28px; font-size: 22px; font-weight: bold; color: #000; text-align: center; margin-top: 10px;"></div>`;
 
             container.innerHTML = html;
         }
