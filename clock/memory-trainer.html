@@ -364,15 +364,19 @@
         <div id="scramble-text" class="scramble-container">
             ここにスクランブルが表示されます
         </div>
+        <div class="control-panel" id="main-control-panel">
+            <button class="btn-scramble" onclick="generateScrambleText()">Scramble</button>
+            <button id="toggle-scramble-btn" class="btn-ctrl" style="flex: 0 0 44px; font-size: 14px;"
+                onclick="toggleScrambleControls()">▼</button>
+        </div>
 
-        <div class="control-panel">
+        <div id="scramble-controls-area" style="display: none; margin-bottom: 20px;">
             <div class="scramble-controls">
                 <button class="btn-ctrl" onclick="moveFirst()">|◀</button>
                 <button class="btn-ctrl" onclick="movePrev()">◀</button>
                 <button class="btn-ctrl" onclick="moveNext()">▶</button>
                 <button class="btn-ctrl" onclick="moveLast()">▶|</button>
             </div>
-            <button class="btn-scramble" onclick="generateScrambleText()">Scramble</button>
         </div>
 
         <div class="clock-wrapper">
@@ -1043,7 +1047,24 @@
             updateSolveButtonsState();
             analyzeMethodCalculations();
         }
+        // 【追加】スクランブル操作ボタンの表示・非表示を切り替える関数
+        function toggleScrambleControls() {
+            const area = document.getElementById('scramble-controls-area');
+            const btn = document.getElementById('toggle-scramble-btn');
+            const panel = document.getElementById('main-control-panel');
 
+            if (area.style.display === 'none') {
+                // 開くときの処理
+                area.style.display = 'block';
+                btn.innerText = '▲';
+                panel.style.marginBottom = '10px'; // ボタンとの隙間を詰める
+            } else {
+                // 閉じるときの処理
+                area.style.display = 'none';
+                btn.innerText = '▼';
+                panel.style.marginBottom = '20px'; // 元の余白に戻す
+            }
+        }
         function renderScrambleHTML() {
             const container = document.getElementById('scramble-text');
             if (!container) return;
@@ -1285,8 +1306,32 @@
             }
             return container;
         }
+        // 【追加】Mnの数値ホバー/タップ時の処理（下線・数式表示・矢印描画）
+        function handleMnEnter(el) {
+            el.style.borderBottom = '5px solid #000';
 
-        // 【追加】UIを描画する関数
+            const formulaDisplay = document.getElementById('mn-formula-display');
+            if (formulaDisplay) {
+                formulaDisplay.innerText = el.getAttribute('data-formula');
+            }
+
+            const rawFormula = el.getAttribute('data-raw-formula');
+            drawMnArrows(rawFormula);
+        }
+
+        // 【追加】Mnの数値ホバー/タップ解除時の処理（消去）
+        function handleMnLeave(el) {
+            el.style.borderBottom = '5px solid transparent';
+
+            const formulaDisplay = document.getElementById('mn-formula-display');
+            if (formulaDisplay) {
+                formulaDisplay.innerText = '';
+            }
+
+            clearMnArrows();
+        }
+
+        // 【修正】UIを描画する関数（数字をメインにした大きなデザインに変更）
         function renderMnDisplay() {
             const container = ensureMnDisplayContainer();
             if (!container) return;
@@ -1298,36 +1343,50 @@
             }
 
             container.style.display = 'block';
-            container.style.margin = '12px 0';
-            container.style.padding = '10px';
+            container.style.margin = '15px 0';
+            container.style.padding = '20px 20px 15px 20px';
             container.style.backgroundColor = '#f8f9fa';
             container.style.border = '1px solid #dee2e6';
-            container.style.borderRadius = '8px';
-            container.style.fontSize = '14px';
-            container.style.textAlign = 'left';
+            container.style.borderRadius = '10px';
+            container.style.textAlign = 'center';
+            container.style.position = 'relative'; // 左上の絶対配置の基準にするため
 
-            const mode = SOLVE_METHODS[state.currentMethod].mode;
+            const mode = methodData.mode;
 
-            let html = `<div style="font-weight: bold; margin-bottom: 8px; color: #495057;">mode: <span style="color:#e64980">${mode}</span></div>`;
-            html += `<div style="display: flex; flex-wrap: wrap; gap: 8px;">`;
+            // 左上の mode 表示
+            let html = `<div style="position: absolute; top: 12px; left: 15px; font-weight: bold; font-size: 14px; color: #495057;">mode: <span style="color:#e64980">${mode}</span></div>`;
+
+            // 中央の大きな数字群（フレックスボックスで横並び）
+            html += `<div style="display: flex; justify-content: center; gap: 15px; font-size: 44px; font-weight: 900; color: #000; margin-top: 5px; margin-bottom: 5px; font-family: sans-serif;">`;
 
             Object.keys(state.mFormulas).forEach(key => {
                 const formula = state.mFormulas[key];
-                const val = state.mValues[key];
-                // マウスホバー＆タッチイベントで描画を制御
-                html += `<span class="mn-formula-item" data-formula="${formula}" 
-                            style="background: #fff; padding: 4px 8px; border: 1px solid #ced4da; border-radius: 6px; cursor: pointer; color: #343a40; transition: background 0.2s;"
-                            onmouseenter="drawMnArrows('${formula}'); this.style.backgroundColor='#f3d9fa';"
-                            onmouseleave="clearMnArrows(); this.style.backgroundColor='#fff';"
-                            ontouchstart="drawMnArrows('${formula}'); this.style.backgroundColor='#f3d9fa';"
-                            ontouchend="clearMnArrows(); this.style.backgroundColor='#fff';">
-                            ${key}=${formula} <b style="color:#6741d9">(=${val})</b>
+                let val = state.mValues[key];
+
+                // 0〜11 の値をクロック特有の -5〜+6 表記に変換する
+                if (val > 6) val -= 12;
+
+                // 各数字を囲む span（ホバーやタップでイベント発火）
+                html += `<span class="mn-value-item" 
+                            data-formula="${key} = ${formula}" 
+                            data-raw-formula="${formula}" 
+                            style="cursor: pointer; padding: 0 4px; border-bottom: 5px solid transparent;"
+                            onmouseenter="handleMnEnter(this)"
+                            onmouseleave="handleMnLeave(this)"
+                            ontouchstart="handleMnEnter(this)"
+                            ontouchend="handleMnLeave(this)">
+                            ${val}
                         </span>`;
             });
 
             html += `</div>`;
+
+            // ホバー時に数式を表示するスペース（高さ固定にしてレイアウトのガタつきを防ぐ）
+            html += `<div id="mn-formula-display" style="height: 20px; font-size: 20px; font-weight: normal; color: #000;"></div>`;
+
             container.innerHTML = html;
         }
+
         function analyzeMethodCalculations() {
             state.mValues = {};
             state.mFormulas = {};
