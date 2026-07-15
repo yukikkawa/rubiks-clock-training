@@ -375,6 +375,10 @@
             border-color: #868e96;
         }
 
+        .switch-base.training-active .switch-knob {
+            transform: translateX(40px);
+        }
+
         .timer-display {
             font-size: 46px;
             font-family: monospace;
@@ -463,6 +467,7 @@
             <button id="primary-action-btn" class="btn-primary" onclick="handlePrimaryAction()">Scramble</button>
         </div>
 
+
         <div id="mn-display-area" style="display: none;"></div>
 
         <div class="bottom-controls">
@@ -498,11 +503,13 @@
                 </svg>
             </div>
         </div>
-        <div class="solution-container"></div>
-        <div id="solve-debug"
-            style="background: #fff5f5; border: 1px solid #ffa8a8; border-radius: 10px; padding: 10px; margin-bottom: 20px; font-family: monospace; font-size: 12px; text-align: left; color: #c92a2a; line-height: 1.4;">
-            DEBUG: [未開始] Face: F, X(Amount): -, Y(Pins): -, Z(Dial): -, F(Flip): -
+        <div class="solution-controls">
+            <button class="btn-ctrl" onclick="solveFirst()">|◀</button>
+            <button class="btn-ctrl" onclick="solvePrev()">◀</button>
+            <button class="btn-ctrl" onclick="solveNext()">▶</button>
+            <button class="btn-ctrl" onclick="solveLast()">▶|</button>
         </div>
+        <div class="solution-container"></div>
     </div>
 
     <script>
@@ -1142,11 +1149,11 @@
             if (state.isTrainingMode) {
                 sw.classList.add('training-active');
                 btn.innerText = 'START';
-                timer.innerText = '00.00';
+                timer.innerText = '--.--';
             } else {
                 sw.classList.remove('training-active');
                 btn.innerText = 'Scramble';
-                timer.innerText = '00.00';
+                timer.innerText = '';
             }
         }
 
@@ -1460,7 +1467,7 @@
             }
 
             container.style.display = 'block';
-            container.style.margin = '10px 0 20px 0';
+            container.style.margin = '0px 0 0px 0';
             container.style.padding = '0'; // 白背景や枠線をなくし、直接数字を並べる
 
             let html = `<div style="display: flex; justify-content: center; gap: 20px; font-size: 46px; font-weight: 900; color: #000; font-family: sans-serif;">`;
@@ -1472,15 +1479,14 @@
 
                 // タイマー作動中なら「?」、それ以外なら計算された数字
                 const displayStr = state.isTimerRunning ? '?' : val;
-                const pointerStyle = state.isTimerRunning ? 'default' : 'pointer';
-                const interactions = state.isTimerRunning ? '' :
-                    `onmouseenter="handleMnEnter(this)" onmouseleave="handleMnLeave(this)" ontouchstart="handleMnEnter(this)" ontouchend="handleMnLeave(this)"`;
-
                 html += `<span class="mn-value-item" 
                             data-formula="${key} = ${formula}" 
                             data-raw-formula="${formula}" 
-                            style="cursor: ${pointerStyle}; padding: 0 4px; border-bottom: 5px solid transparent;"
-                            ${interactions}>
+                            style="cursor: pointer; padding: 0 4px; border-bottom: 5px solid transparent;"
+                            onmouseenter="handleMnEnter(this)"
+                            onmouseleave="handleMnLeave(this)"
+                            ontouchstart="handleMnEnter(this)"
+                            ontouchend="handleMnLeave(this)">
                             ${displayStr}
                         </span>`;
             });
