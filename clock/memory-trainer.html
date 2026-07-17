@@ -10,24 +10,59 @@
     <style>
         body {
             background-color: #f1f3f5;
+            /* iOS, Mac, Windows, Androidで最も綺麗に見える標準フォントを順に指定 */
+            font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+            color: #333;
         }
 
         #app {
             max-width: 600px;
+            margin: 0 auto;
+            /* 中央寄せが抜けていた場合は追加すると綺麗です */
         }
 
         /* スクランブル表示エリア */
+        .scramble-wrapper {
+            position: relative;
+            margin-bottom: 10px;
+        }
+
         .scramble-container {
-            /*background: #f8f9fa;*/
             /*border: 2px solid #dee2e6;*/
             border-radius: 10px;
             padding: 12px;
-            /*margin-bottom: 15px;*/
-            font-family: monospace;
-            font-size: 14px;
+            /* 等幅フォントもOSごとの差異を吸収するスタックを指定 */
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 15px;
+            /* スマホでも見やすいように少しだけ調整 */
             line-height: 1.8;
             text-align: left;
             word-break: break-all;
+            padding-right: 30px !important;
+        }
+
+        .toggle-scramble-btn-inline {
+            position: absolute;
+            bottom: 0px;
+            right: 0px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            color: #000;
+            padding: 4px 8px;
+            outline: none;
+        }
+
+        .slim-btn {
+            padding: 2px 0 !important;
+            font-size: 12px !important;
+            height: 26px;
+            border-radius: 6px !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
         }
 
         /* 各回転記号の進捗スタイル定義 */
@@ -275,7 +310,8 @@
             padding: 12px;
             margin-top: 20px;
             margin-bottom: 20px;
-            font-family: monospace;
+            /* 【変更】等幅フォントを統一 */
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
             font-size: 13px;
             line-height: 1.5;
             text-align: left;
@@ -370,18 +406,23 @@
             align-items: center;
         }
 
+        /* トレーニングモードがOnのときの土台（鮮やかな青色に変更） */
         .switch-base.training-active {
-            background-color: #adb5bd;
-            border-color: #868e96;
+            background-color: #55beb9;
+            border-color: #32adb3;
         }
 
+        /* トレーニングモードがOnのときのノブ（白にして影をつける） */
         .switch-base.training-active .switch-knob {
             transform: translateX(40px);
+            background-color: #ffffff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
         }
 
         .timer-display {
-            font-size: 40px;
-            font-family: monospace;
+            font-size: 46px;
+            /* 【変更】monospaceのみだったものを統一 */
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
             font-weight: 500;
             color: #000;
             width: 140px;
@@ -392,10 +433,10 @@
         .btn-primary {
             background-color: #228be6;
             color: white;
-            font-size: 22px;
+            font-size: 18px;
             font-weight: bold;
             padding: 10px 0;
-            width: 140px;
+            width: 100px;
             border: none;
             border-radius: 8px;
             cursor: pointer;
@@ -428,20 +469,22 @@
 
 <body>
     <div id="app">
-        <h2>7-Simul 盤面シミュレータ</h2>
-        <div id="scramble-text" class="scramble-container">ここにスクランブルが表示されます</div>
+        <h2 style="text-align: center;">7-Simul 盤面シミュレータ</h2>
 
-        <div class="control-panel" id="main-control-panel" style="justify-content: flex-end;">
-            <button id="toggle-scramble-btn" class="btn-ctrl" style="flex: 0 0 44px; font-size: 14px;"
+        <!-- スクランブル表示と右下のトグルボタンをラップする -->
+        <div class="scramble-wrapper">
+            <div id="scramble-text" class="scramble-container">ここにスクランブルが表示されます</div>
+            <button id="toggle-scramble-btn" class="toggle-scramble-btn-inline"
                 onclick="toggleScrambleControls()">▼</button>
         </div>
 
+        <!-- 折りたたまれるスリムなボタン領域 -->
         <div id="scramble-controls-area" style="display: none; margin-bottom: 20px;">
             <div class="scramble-controls">
-                <button class="btn-ctrl" onclick="moveFirst()">|◀</button>
-                <button class="btn-ctrl" onclick="movePrev()">◀</button>
-                <button class="btn-ctrl" onclick="moveNext()">▶</button>
-                <button class="btn-ctrl" onclick="moveLast()">▶|</button>
+                <button class="btn-ctrl slim-btn" onclick="moveFirst()">|◀</button>
+                <button class="btn-ctrl slim-btn" onclick="movePrev()">◀</button>
+                <button class="btn-ctrl slim-btn" onclick="moveNext()">▶</button>
+                <button class="btn-ctrl slim-btn" onclick="moveLast()">▶|</button>
             </div>
         </div>
 
@@ -461,7 +504,7 @@
                 <div id="training-switch" class="switch-base" onclick="toggleTrainingMode()">
                     <div class="switch-knob"></div>
                 </div>
-                <div style="font-size: 14px; font-weight: bold; color: #868e96; margin-top: 6px;">Training</div>
+                <div style="font-size: 12px; font-weight: bold; color: #868e96; margin-top: 6px;">トレーニング</div>
             </div>
             <div id="timer-display" class="timer-display">--.--</div>
             <button id="primary-action-btn" class="btn-primary" onclick="handlePrimaryAction()">Scramble</button>
