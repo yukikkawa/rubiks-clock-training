@@ -1573,7 +1573,6 @@
                         total = (total + state.clocks[single] || 0) % 12;
                     }
                 });
-                if (total > 6) total -= 12;
                 state.mValues[mKey] = total;
             });
 
