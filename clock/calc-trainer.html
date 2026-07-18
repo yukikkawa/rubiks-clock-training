@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ルービッククロック 計算練習</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="common.css">
     <script src="clock-utils.js"></script>
     <style>
@@ -113,7 +116,7 @@
             padding: 0 4px;
         }
         .live-timer {
-            font-variant-numeric: tabular-nums;
+            font-family: "JetBrains Mono", monospace;
             background: #e2f5e5;
             color: #2b8a3e;
             padding: 4px 12px;
@@ -130,6 +133,7 @@
         
         /* リザルト表示 */
         .result-total {
+            font-family: "JetBrains Mono", monospace;
             font-size: 32px;
             font-weight: bold;
             color: #d6336c;
@@ -246,6 +250,7 @@
             pointer-events: none;
         }
         #countdown-display {
+            font-family: "JetBrains Mono", monospace;
             font-size: 100px;
             font-weight: 900;
             color: #2b8a3e;
