@@ -764,8 +764,7 @@
             return ClockUtils.createClockSVG(id, {
                 isFront: isFront,
                 className: 'sub-clock',
-                isCornerClickable: true,
-                clickHandler: handleManualRotate
+                isCornerClickable: false
             });
         }
 
@@ -1076,10 +1075,6 @@
             setFlipMode(nextMode);
         }
 
-        function handleManualRotate(id) {
-            rotateEngine(id, 1);
-            renderAllDisplays();
-        }
 
         function rotateEngine(id, amount) {
             const pinOfAxis = {
