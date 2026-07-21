@@ -341,7 +341,6 @@
             border: 3px dashed #193450;
         }
 
-        /* 【追加】解法選択ドロップダウンのスタイル */
         .solve-method-selector {
             margin: 15px 0 10px 0;
             text-align: center;
@@ -377,8 +376,6 @@
             stroke-width: 2;
             stroke-linecap: round;
             opacity: 0.8;
-            /* marker-end は drawArrow() 側で個別のマーカーIDを
-               style.setProperty(..., 'important') で設定するため、ここでは指定しない */
         }
 
         #solve-arrow-head path {
@@ -407,13 +404,11 @@
             align-items: center;
         }
 
-        /* トレーニングモードがOnのときの土台（鮮やかな青色に変更） */
         .switch-base.training-active {
             background-color: #55beb9;
             border-color: #32adb3;
         }
 
-        /* トレーニングモードがOnのときのノブ（白にして影をつける） */
         .switch-base.training-active .switch-knob {
             transform: translateX(30px);
             background-color: #ffffff;
@@ -516,12 +511,14 @@
         }
 
         #mn-formula-display {
+            font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
             height: 28px;
             font-size: 22px;
             font-weight: bold;
             color: #000;
             text-align: center;
-            margin-top: 10px;
+            margin-top: 0px;
+            margin-bottom: 10px;
         }
 
         #mn-display-area {
@@ -616,6 +613,7 @@
                 <option value="7sfndmw6lm">7sfndmw6lm</option>
                 <option value="bpaul">bpaul</option>
                 <option value="bpaul_x2">bpaul(x2)</option>
+                <option value="bpaul_x2_mirror">bpaul(x2)(mirror)</option>
                 <option value="tommy">Tommy</option>
             </select>
         </div>
@@ -700,6 +698,26 @@
                     "UL,DL/-/UR:UR->DL",
                     "UL/UL:C->R/UR:DR->R",
                     "UL,DR/UL:C->12/UR:UR->12"
+                ]
+            },
+            'bpaul_x2_mirror': {
+                mode: 'x2',
+                formulas: {
+                    'M1': 'R->U+l->dl',
+                    'M2': 'd->c',
+                    'M3': 'l->d',
+                    'M4': 'u->c',
+                    'M5': 'r->ur+L->D'
+                },
+                moves: [
+                    "UR,UL,DL/DR:M2/UL:M1",
+                    "UL,DL/UR:M3/UL:U->R",
+                    "DL/UR:UR->U/DL:C->U",
+                    "UR,DR,DL/UR:M5/UL:M4",
+                    "UR,DR/UR:D->L/-",
+                    "UR,DR/-/UL:UL->DR",
+                    "UR/UR:C->L/UL:DL->L",
+                    "UR,DL/UR:C->12/UL:UL->12"
                 ]
             },
             'tommy': {
