@@ -1603,7 +1603,7 @@
             Object.keys(state.mFormulas).forEach(key => {
                 const formula = state.mFormulas[key];
                 let val = state.mValues[key];
-                //if (val > 6) val -= 12;
+                if (val > 6) val -= 12;
 
                 // タイマー作動中なら「?」、それ以外なら計算された数字
                 const displayStr = state.isTimerRunning ? '?' : val;
@@ -1660,7 +1660,6 @@
                         total = (total + state.clocks[single] || 0) % 12;
                     }
                 });
-                if (total > 6) total -= 12;
                 state.mValues[mKey] = total;
             });
 
