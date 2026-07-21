@@ -7,7 +7,9 @@
     <title>7-Simul 盤面シミュレータ</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="common.css">
     <script src="clock-utils.js"></script>
     <style>
@@ -465,12 +467,82 @@
             gap: 25px;
             margin-bottom: 15px;
         }
+
+        /* 整理されたインラインスタイル */
+        h2 {
+            text-align: center;
+        }
+
+        #scramble-controls-area {
+            display: none;
+            margin-bottom: 20px;
+        }
+
+        #scramble-controls-area.show {
+            display: block;
+        }
+
+        .timer-label {
+            font-size: 12px;
+            font-weight: bold;
+            color: #868e96;
+            margin-top: 6px;
+        }
+
+        .toggle-container.no-margin {
+            margin: 0;
+        }
+
+        .solve-method-label {
+            font-size: 14px;
+            color: #495057;
+            font-weight: bold;
+        }
+
+        .mn-values-row {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            font-size: 46px;
+            font-weight: 900;
+            color: #000;
+            font-family: inherit;
+        }
+
+        .mn-value-item {
+            cursor: pointer;
+            padding: 0 4px;
+            border-bottom: 5px solid transparent;
+        }
+
+        #mn-formula-display {
+            height: 28px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #000;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        #mn-display-area {
+            display: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        #mn-display-area.show {
+            display: block;
+        }
+
+        .debug-m-label {
+            color: #6741d9;
+        }
     </style>
 </head>
 
 <body>
     <div id="app">
-        <h2 style="text-align: center;">7-Simul 盤面シミュレータ</h2>
+        <h2>7-Simul 盤面シミュレータ</h2>
 
         <!-- スクランブル表示と右下のトグルボタンをラップする -->
         <div class="scramble-wrapper">
@@ -480,7 +552,7 @@
         </div>
 
         <!-- 折りたたまれるスリムなボタン領域 -->
-        <div id="scramble-controls-area" style="display: none; margin-bottom: 20px;">
+        <div id="scramble-controls-area">
             <div class="scramble-controls">
                 <button class="btn-ctrl slim-btn" onclick="moveFirst()">|◀</button>
                 <button class="btn-ctrl slim-btn" onclick="movePrev()">◀</button>
@@ -505,16 +577,16 @@
                 <div id="training-switch" class="switch-base" onclick="toggleTrainingMode()">
                     <div class="switch-knob"></div>
                 </div>
-                <div style="font-size: 12px; font-weight: bold; color: #868e96; margin-top: 6px;">Timer</div>
+                <div class="timer-label">Timer</div>
             </div>
             <div id="timer-display" class="timer-display">--.--</div>
             <button id="primary-action-btn" class="btn-primary" onclick="handlePrimaryAction()">Scramble</button>
         </div>
 
 
-        <div id="mn-display-area" style="display: none;"></div>
+        <div id="mn-display-area"></div>
 
-        <div class="toggle-container" style="margin: 0;">
+        <div class="toggle-container no-margin">
             <svg id="icon-y2" class="axis-icon" viewBox="0 0 60 60" onclick="setFlipMode('y2')">
                 <circle cx="30" cy="30" r="18" fill="none" stroke="#000" stroke-width="3" />
                 <line x1="30" y1="5" x2="30" y2="12" stroke="#000" stroke-width="3" stroke-linecap="round" />
@@ -537,7 +609,7 @@
         </div>
 
         <div class="solve-method-selector">
-            <label for="solve-method" style="font-size: 14px; color: #495057; font-weight: bold;">解法: </label>
+            <label for="solve-method" class="solve-method-label">解法: </label>
             <select id="solve-method" onchange="changeSolveMethod(this.value)">
                 <option value="flip">Flip</option>
                 <option value="10mm">10MM (10 Moves Memoless)</option>
@@ -1169,12 +1241,12 @@
             const area = document.getElementById('scramble-controls-area');
             const btn = document.getElementById('toggle-scramble-btn');
 
-            if (area.style.display === 'none') {
-                area.style.display = 'block';
-                btn.innerText = '▲';
-            } else {
-                area.style.display = 'none';
+            if (area.classList.contains('show')) {
+                area.classList.remove('show');
                 btn.innerText = '▼';
+            } else {
+                area.classList.add('show');
+                btn.innerText = '▲';
             }
         }
 
@@ -1502,27 +1574,24 @@
             const methodData = SOLVE_METHODS[state.currentMethod];
             if (!methodData || !methodData.formulas) {
                 container.innerHTML = '';
-                container.style.display = 'none';
+                container.classList.remove('show');
                 return;
             }
 
-            container.style.display = 'block';
-            container.style.margin = '0px 0 0px 0';
-            container.style.padding = '0'; // 白背景や枠線をなくし、直接数字を並べる
+            container.classList.add('show');
 
-            let html = `<div style="display: flex; justify-content: center; gap: 20px; font-size: 46px; font-weight: 900; color: #000; font-family: inherit;">`;
+            let html = `<div class="mn-values-row">`;
 
             Object.keys(state.mFormulas).forEach(key => {
                 const formula = state.mFormulas[key];
                 let val = state.mValues[key];
-                if (val > 6) val -= 12;
+                //if (val > 6) val -= 12;
 
                 // タイマー作動中なら「?」、それ以外なら計算された数字
                 const displayStr = state.isTimerRunning ? '?' : val;
                 html += `<span class="mn-value-item" 
                             data-formula="${key} = ${formula}" 
                             data-raw-formula="${formula}" 
-                            style="cursor: pointer; padding: 0 4px; border-bottom: 5px solid transparent;"
                             onmouseenter="handleMnEnter(this)"
                             onmouseleave="handleMnLeave(this)"
                             ontouchstart="handleMnEnter(this)"
@@ -1532,7 +1601,7 @@
             });
 
             html += `</div>`;
-            html += `<div id="mn-formula-display" style="height: 28px; font-size: 22px; font-weight: bold; color: #000; text-align: center; margin-top: 10px;"></div>`;
+            html += `<div id="mn-formula-display"></div>`;
 
             container.innerHTML = html;
         }
@@ -1573,6 +1642,7 @@
                         total = (total + state.clocks[single] || 0) % 12;
                     }
                 });
+                if (total > 6) total -= 12;
                 state.mValues[mKey] = total;
             });
 
@@ -1581,7 +1651,7 @@
 
         function getMValuesDebugString() {
             if (!state.mValues || Object.keys(state.mValues).length === 0) return '';
-            return `<br>• <b style="color: #6741d9">M (Calculated)</b> : ` +
+            return `<br>• <b class="debug-m-label">M (Calculated)</b> : ` +
                 Object.keys(state.mValues).map(k => `${k}=${state.mValues[k]}`).join(', ');
         }
 

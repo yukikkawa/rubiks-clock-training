@@ -307,6 +307,98 @@
         .clock-svg line {
             transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1);
         }
+
+        /* 整理されたインラインスタイル */
+        .pause-overlay-content {
+            text-align: center;
+        }
+
+        .pause-title {
+            margin-bottom: 10px;
+        }
+
+        .pause-stats {
+            margin-bottom: 20px;
+            color: #495057;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .highlight-blue {
+            font-weight: bold;
+            color: #228be6;
+        }
+
+        .highlight-red {
+            font-weight: bold;
+            color: #f03e3e;
+        }
+
+        .btn-pause-resume {
+            width: auto;
+        }
+
+        .btn-back-to-title {
+            display: block;
+            margin: 20px auto 0 auto;
+        }
+
+        /* 既存の start-best クラスにインライン分をマージ、または上書き */
+        .start-best, .result-best {
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+
+        .start-best.has-history, .result-best.has-history {
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .start-stats-detail, .result-stats-detail {
+            font-size: 15px;
+            color: #868e96;
+        }
+
+        .stats-recent {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #adb5bd;
+        }
+
+        .stats-recent-val {
+            color: #adb5bd;
+            font-weight: bold;
+        }
+
+        .difficulty-desc {
+            font-size: 12px;
+            color: #868e96;
+            margin-top: -10px;
+            margin-bottom: 15px;
+            min-height: 1.5em;
+        }
+
+        .result-difficulty {
+            font-size: 14px;
+            color: #868e96;
+            margin-bottom: 5px;
+        }
+
+        .result-comparison {
+            font-size: 15px;
+            margin-bottom: 15px;
+            min-height: 1.5em;
+            color: #495057;
+            font-weight: bold;
+        }
+
+        .difficulty-bests-list {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #adb5bd;
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -335,14 +427,14 @@
     </div>
 
     <div id="pause-overlay" class="effect-overlay">
-        <div style="text-align: center;">
-            <h2 style="margin-bottom: 10px;">一時停止中</h2>
-            <div style="margin-bottom: 20px; color: #495057; font-size: 15px; line-height: 1.6;">
-                <div>現在の進捗: <span id="pause-current-step" style="font-weight: bold; color: #228be6;">--</span> / 10 問目</div>
-                <div>これまでのミス: <span id="pause-miss-count" style="font-weight: bold; color: #f03e3e;">--</span> 回</div>
+        <div class="pause-overlay-content">
+            <h2 class="pause-title">一時停止中</h2>
+            <div class="pause-stats">
+                <div>現在の進捗: <span id="pause-current-step" class="highlight-blue">--</span> / 10 問目</div>
+                <div>これまでのミス: <span id="pause-miss-count" class="highlight-red">--</span> 回</div>
             </div>
-            <button class="btn-start" style="width: auto;" onclick="togglePause()">再開する</button>
-            <button class="btn-reset" style="display: block; margin: 20px auto 0 auto;" onclick="backToTitle()">タイトルに戻る</button>
+            <button class="btn-start btn-pause-resume" onclick="togglePause()">再開する</button>
+            <button class="btn-reset btn-back-to-title" onclick="backToTitle()">タイトルに戻る</button>
         </div>
     </div>
 
@@ -351,10 +443,10 @@
         <p>クロックの針を合わせる<br>ダイヤル回転数を答えてください。</p>
 
         <div id="start-stats-container" class="stats-block" style="display: none;">
-            <div id="start-best" class="start-best" style="display: none; padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); margin-bottom: 10px;">ベストタイム: <span id="start-best-time">--</span> 秒</div>
-            <div id="start-stats" style="display: none; font-size: 15px; color: #868e96;">
-                <div>直近5回の平均: <span id="start-avg" style="font-weight: bold; color: #228be6;">--</span> 秒</div>
-                <div style="margin-top: 10px; font-size: 12px; color: #adb5bd;">直近5回の記録: <span id="start-recent" style="color: #adb5bd; font-weight: bold;"></span></div>
+            <div id="start-best" class="start-best" style="display: none;">ベストタイム: <span id="start-best-time">--</span> 秒</div>
+            <div id="start-stats" class="start-stats-detail" style="display: none;">
+                <div>直近5回の平均: <span id="start-avg" class="highlight-blue">--</span> 秒</div>
+                <div class="stats-recent">直近5回の記録: <span id="start-recent" class="stats-recent-val"></span></div>
             </div>
         </div>
         
@@ -363,7 +455,7 @@
             <button class="btn-difficulty" data-level="intermediate" onclick="selectDifficulty('intermediate')">中級</button>
             <button class="btn-difficulty" data-level="advanced" onclick="selectDifficulty('advanced')">上級</button>
         </div>
-        <div id="start-difficulty-desc" style="font-size: 12px; color: #868e96; margin-top: -10px; margin-bottom: 15px; min-height: 1.5em;"></div>
+        <div id="start-difficulty-desc" class="difficulty-desc"></div>
         <button class="btn-start" onclick="startQuiz()">START</button>
         <button class="btn-reset" onclick="confirmReset()">記録をリセットする</button>
     </div>
@@ -405,14 +497,14 @@
         <div class="result-formula">
             = <span id="base-time">0.00</span>秒 +（ミス<span id="total-miss">0</span>回×2秒）
         </div>
-        <div id="result-difficulty" style="font-size: 14px; color: #868e96; margin-bottom: 5px;">難易度: <span id="result-diff-label">--</span></div>
-        <div id="result-comparison" style="font-size: 15px; margin-bottom: 15px; min-height: 1.5em; color: #495057; font-weight: bold;"></div>
+        <div id="result-difficulty" class="result-difficulty">難易度: <span id="result-diff-label">--</span></div>
+        <div id="result-comparison" class="result-comparison"></div>
 
-        <div id="result-stats-container" class="stats-block" style="margin-bottom: 20px;">
-            <div id="result-best" class="result-best" style="padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); margin-bottom: 10px;">ベストタイム: <span id="best-time">--</span> 秒</div>
-            <div id="result-stats" style="font-size: 15px; color: #868e96;">
-                <div>直近5回の平均: <span id="result-avg" style="font-weight: bold; color: #228be6;">--</span> 秒</div>
-                <div style="margin-top: 10px; font-size: 12px; color: #adb5bd;">直近6回の記録: <span id="result-recent" style="color: #adb5bd; font-weight: bold;"></span></div>
+        <div id="result-stats-container" class="stats-block">
+            <div id="result-best" class="result-best">ベストタイム: <span id="best-time">--</span> 秒</div>
+            <div id="result-stats" class="result-stats-detail">
+                <div>直近5回の平均: <span id="result-avg" class="highlight-blue">--</span> 秒</div>
+                <div class="stats-recent">直近6回の記録: <span id="result-recent" class="stats-recent-val"></span></div>
             </div>
         </div>
 
@@ -421,8 +513,8 @@
             <button class="btn-difficulty" data-level="intermediate" onclick="selectDifficulty('intermediate')">中級</button>
             <button class="btn-difficulty" data-level="advanced" onclick="selectDifficulty('advanced')">上級</button>
         </div>
-        <div id="result-difficulty-desc" style="font-size: 12px; color: #868e96; margin-top: -10px; margin-bottom: 15px; min-height: 1.5em;"></div>
-        <div id="difficulty-bests-list" style="margin-top: 10px; font-size: 13px; color: #adb5bd; display: flex; justify-content: space-around; width: 100%;"></div>
+        <div id="result-difficulty-desc" class="difficulty-desc"></div>
+        <div id="difficulty-bests-list" class="difficulty-bests-list"></div>
 
         <button class="btn-start" onclick="startQuiz()">もう一度挑戦</button>
         <button class="btn-reset" onclick="confirmReset()">記録をリセットする</button>
@@ -657,7 +749,13 @@
 
         // ベスト記録が表示されている場合のみ区切り線を調整
         const bestEl = document.getElementById(`${prefix}-best`);
-        if (bestEl) bestEl.style.borderBottom = (history.length > 0 && bestEl.style.display !== 'none') ? '1px solid rgba(0,0,0,0.05)' : 'none';
+        if (bestEl) {
+            if (history.length > 0 && bestEl.style.display !== 'none') {
+                bestEl.classList.add('has-history');
+            } else {
+                bestEl.classList.remove('has-history');
+            }
+        }
 
         container.style.display = 'block';
         document.getElementById(`${prefix}-avg`).innerText = avg;
