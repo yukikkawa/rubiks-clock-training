@@ -534,6 +534,17 @@
         .debug-m-label {
             color: #6741d9;
         }
+
+        .solve-mn-label {
+            position: absolute;
+            transform: translate(-50%, -8%);
+            font-weight: 900;
+            font-size: 22px;
+            font-family: "Noto Sans JP", sans-serif;
+            text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 0px 3px 5px rgba(0, 0, 0, 0.4);
+            pointer-events: none;
+            z-index: 25;
+        }
     </style>
 </head>
 
@@ -1934,12 +1945,33 @@
         // 矢印と描画関連の共通関数群
         // -------------------------------------------------------------------
 
-        // 【共通】画面上の時計座標マップ
-        const VISUAL_COORD_MAP = {
-            'UL': [21, 21.5], 'U': [49.5, 21.5], 'UR': [79, 21.5],
-            'L': [21, 50], 'C': [49.5, 50], 'R': [79, 50],
-            'DL': [21, 79.5], 'D': [49.5, 79.5], 'DR': [79, 79.5]
+        // 【共通】画面上の時計座標マップ（boardを基準に、各ダイヤルの中心をパーセンテージで返す）
+        const DIAL_NAME_TO_GRID = {
+            'UL': 'F00', 'U': 'F10', 'UR': 'F20',
+            'L': 'F01', 'C': 'F11', 'R': 'F21',
+            'DL': 'F02', 'D': 'F12', 'DR': 'F22'
         };
+
+        function getVisualCoord(dialName) {
+            const clockId = DIAL_NAME_TO_GRID[dialName];
+            if (!clockId) return null;
+
+            const clockEl = document.getElementById(`container-${clockId}`);
+            const board = document.getElementById('board-front');
+            if (!clockEl || !board) return null;
+
+            const boardRect = board.getBoundingClientRect();
+            const clockRect = clockEl.getBoundingClientRect();
+
+            const x = ((clockRect.left + clockRect.width / 2) - boardRect.left) / boardRect.width * 100;
+            const y = ((clockRect.top + clockRect.height / 2) - boardRect.top) / boardRect.height * 100;
+            return [x, y];
+        }
+
+        // 後方互換のためのラッパー（固定マップとして使われる箇所用）
+        const VISUAL_COORD_MAP = new Proxy({}, {
+            get(_, key) { return getVisualCoord(key); }
+        });
 
         // 【共通】始点と終点の名前から、矢印を描画する座標を計算する関数
         function calculateArrowPoints(startName, endName, isBackAndX2) {
@@ -2227,7 +2259,6 @@
             const label = document.createElement('div');
             label.className = 'solve-mn-label solve-arrow-svg';
             label.innerText = textStr;
-            label.style.position = 'absolute';
 
             // ズレ幅（オフセット）を小さくして、ダイヤルのフチに乗るように調整
             let offsetX = 0;
@@ -2241,15 +2272,7 @@
             // 計算したオフセットを適用
             label.style.left = `calc(${rawCoord[0]}% + ${offsetX}px)`;
             label.style.top = `calc(${rawCoord[1]}% + ${offsetY}px)`;
-            label.style.transform = 'translate(-50%, -8%)';
-
             label.style.color = color;
-            label.style.fontWeight = '900';
-            label.style.fontSize = '22px';
-            label.style.fontFamily = 'sans-serif';
-            label.style.textShadow = '2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 0px 3px 5px rgba(0,0,0,0.4)';
-            label.style.pointerEvents = 'none';
-            label.style.zIndex = '25';
 
             board.appendChild(label);
         }
