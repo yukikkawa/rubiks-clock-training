@@ -1963,8 +1963,19 @@
             const boardRect = board.getBoundingClientRect();
             const clockRect = clockEl.getBoundingClientRect();
 
-            const x = ((clockRect.left + clockRect.width / 2) - boardRect.left) / boardRect.width * 100;
-            const y = ((clockRect.top + clockRect.height / 2) - boardRect.top) / boardRect.height * 100;
+            // position: absolute の矢印SVGはborderを除いたpadding boxを基準に配置される。
+            // getBoundingClientRect()はborder-boxを返すため、border幅を差し引いて基準を合わせる。
+            const boardStyle = window.getComputedStyle(board);
+            const borderLeft = parseFloat(boardStyle.borderLeftWidth) || 0;
+            const borderTop  = parseFloat(boardStyle.borderTopWidth)  || 0;
+
+            const innerLeft   = boardRect.left + borderLeft;
+            const innerTop    = boardRect.top  + borderTop;
+            const innerWidth  = boardRect.width  - borderLeft * 2;
+            const innerHeight = boardRect.height - borderTop  * 2;
+
+            const x = ((clockRect.left + clockRect.width  / 2) - innerLeft) / innerWidth  * 100;
+            const y = ((clockRect.top  + clockRect.height / 2) - innerTop)  / innerHeight * 100;
             return [x, y];
         }
 
