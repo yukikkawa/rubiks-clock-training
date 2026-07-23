@@ -721,14 +721,14 @@
                     'M5': 'r->ur+L->D'
                 },
                 moves: [
-                    "UR,UL,DL/DR:M2/UL:M1",
-                    "UL,DL/UR:M3/UL:U->R",
-                    "DL/UR:UR->U/DL:C->U",
-                    "UR,DR,DL/UR:M5/UL:M4",
-                    "UR,DR/UR:D->L/-",
-                    "UR,DR/-/UL:UL->DR",
-                    "UR/UR:C->L/UL:DL->L",
-                    "UR,DL/UR:C->12/UL:UL->12"
+                    "UR,UL,DL/UL:M1/DR:M2",
+                    "UL,DL/UL:U->R/UR:M3",
+                    "DL/DL:C->U/UR:UR->U",
+                    "UR,DR,DL/UL:M4/UR:M5",
+                    "UR,DR/-/UR:D->L",
+                    "UR,DR/UL:UL->DR/-",
+                    "UR/UL:DL->L/UR:C->L",
+                    "UR,DL/UL:UL->12/UR:C->12"
                 ]
             },
             'tommy': {
@@ -1577,7 +1577,7 @@
 
             const formulaDisplay = document.getElementById('mn-formula-display');
             if (formulaDisplay) {
-                formulaDisplay.innerText = el.getAttribute('data-formula');
+                formulaDisplay.innerText = el.getAttribute('data-formula').split('+').join(' + ');
             }
 
             const rawFormula = el.getAttribute('data-raw-formula');
@@ -1967,15 +1967,15 @@
             // getBoundingClientRect()はborder-boxを返すため、border幅を差し引いて基準を合わせる。
             const boardStyle = window.getComputedStyle(board);
             const borderLeft = parseFloat(boardStyle.borderLeftWidth) || 0;
-            const borderTop  = parseFloat(boardStyle.borderTopWidth)  || 0;
+            const borderTop = parseFloat(boardStyle.borderTopWidth) || 0;
 
-            const innerLeft   = boardRect.left + borderLeft;
-            const innerTop    = boardRect.top  + borderTop;
-            const innerWidth  = boardRect.width  - borderLeft * 2;
-            const innerHeight = boardRect.height - borderTop  * 2;
+            const innerLeft = boardRect.left + borderLeft;
+            const innerTop = boardRect.top + borderTop;
+            const innerWidth = boardRect.width - borderLeft * 2;
+            const innerHeight = boardRect.height - borderTop * 2;
 
-            const x = ((clockRect.left + clockRect.width  / 2) - innerLeft) / innerWidth  * 100;
-            const y = ((clockRect.top  + clockRect.height / 2) - innerTop)  / innerHeight * 100;
+            const x = ((clockRect.left + clockRect.width / 2) - innerLeft) / innerWidth * 100;
+            const y = ((clockRect.top + clockRect.height / 2) - innerTop) / innerHeight * 100;
             return [x, y];
         }
 
