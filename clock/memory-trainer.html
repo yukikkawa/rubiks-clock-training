@@ -157,6 +157,7 @@
         }
 
         .clock-board {
+            container-type: inline-size;
             position: relative;
             width: min(250px, 43vw);
             height: min(250px, 43vw);
@@ -311,13 +312,89 @@
             padding: 12px;
             margin-top: 20px;
             margin-bottom: 20px;
-            /* 【変更】等幅フォントを統一 */
             font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
             font-size: 13px;
-            line-height: 1.5;
+            line-height: 1.6;
             text-align: left;
-            white-space: pre-wrap;
             color: #495057;
+            overflow-x: auto;
+        }
+
+        .move-header {
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+            padding: 2px 4px 6px 4px;
+            margin-bottom: 6px;
+            border-bottom: 1px solid #dee2e6;
+            font-weight: bold;
+            color: #868e96;
+            user-select: none;
+        }
+
+        .move-header .move-slash {
+            color: #adb5bd;
+            font-weight: normal;
+        }
+
+        .solution-container .move-item {
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+            margin-right: 0;
+            padding: 1px 4px;
+            border-radius: 4px;
+        }
+
+        .solution-container .move-item.current {
+            background-color: #e7f5ff;
+            text-decoration: none;
+        }
+
+        .move-num {
+            display: inline-block;
+            width: 3ch;
+            text-align: right;
+            margin-right: 0.8ch;
+            flex-shrink: 0;
+            user-select: none;
+            color: #868e96;
+        }
+
+        .solution-container .move-item.current .move-num {
+            color: #1971c2;
+            font-weight: bold;
+        }
+
+        .move-part.part-pins {
+            display: inline-block;
+            width: 13ch;
+            flex-shrink: 0;
+        }
+
+        .move-part.part-left {
+            display: inline-block;
+            width: 9ch;
+            flex-shrink: 0;
+        }
+
+        .move-part.part-right {
+            display: inline-block;
+            flex-shrink: 0;
+        }
+
+        .move-part.part-flip {
+            font-weight: bold;
+            color: #7950f2;
+        }
+
+        .move-slash {
+            display: inline-block;
+            width: 2ch;
+            text-align: center;
+            color: #adb5bd;
+            flex-shrink: 0;
+            font-weight: normal;
         }
 
         /* 解法用のピン強調輪郭と時計矢印のスタイル */
@@ -539,7 +616,7 @@
             position: absolute;
             transform: translate(-50%, -8%);
             font-weight: 900;
-            font-size: 22px;
+            font-size: 11cqw;
             font-family: "Noto Sans JP", sans-serif;
             text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 0px 3px 5px rgba(0, 0, 0, 0.4);
             pointer-events: none;
@@ -1527,17 +1604,93 @@
             const container = document.querySelector('.solution-container');
             if (!container) return;
             container.innerHTML = '';
+
+            // ヘッダー行 (pin / left / right) の描画
+            const header = document.createElement('div');
+            header.className = 'move-header';
+
+            const headerNum = document.createElement('span');
+            headerNum.className = 'move-num';
+            headerNum.innerText = '';
+            header.appendChild(headerNum);
+
+            const headerPin = document.createElement('span');
+            headerPin.className = 'move-part part-pins';
+            headerPin.innerText = 'pins';
+            header.appendChild(headerPin);
+
+            const headerSlash1 = document.createElement('span');
+            headerSlash1.className = 'move-slash';
+            headerSlash1.innerText = '/';
+            header.appendChild(headerSlash1);
+
+            const headerLeft = document.createElement('span');
+            headerLeft.className = 'move-part part-left';
+            headerLeft.innerText = 'left';
+            header.appendChild(headerLeft);
+
+            const headerSlash2 = document.createElement('span');
+            headerSlash2.className = 'move-slash';
+            headerSlash2.innerText = '/';
+            header.appendChild(headerSlash2);
+
+            const headerRight = document.createElement('span');
+            headerRight.className = 'move-part part-right';
+            headerRight.innerText = 'right';
+            header.appendChild(headerRight);
+
+            container.appendChild(header);
+
             state.solveMoves.forEach((move, index) => {
-                const span = document.createElement('span');
-                span.style.display = 'block';
-                span.innerText = `${index + 1}.${move}`;
+                const item = document.createElement('div');
+                item.className = 'move-item';
                 if (index < state.currentSolveIndex)
-                    span.className = 'move-item done';
+                    item.classList.add('done');
                 else if (index === state.currentSolveIndex)
-                    span.className = 'move-item current';
+                    item.classList.add('current');
                 else
-                    span.className = 'move-item pending';
-                container.appendChild(span);
+                    item.classList.add('pending');
+
+                const numSpan = document.createElement('span');
+                numSpan.className = 'move-num';
+                numSpan.innerText = `${index + 1}.`;
+                item.appendChild(numSpan);
+
+                const parts = move.split('/');
+                if (parts.length === 1) {
+                    const flipSpan = document.createElement('span');
+                    flipSpan.className = 'move-part part-flip';
+                    flipSpan.innerText = parts[0];
+                    item.appendChild(flipSpan);
+                } else {
+                    const pinSpan = document.createElement('span');
+                    pinSpan.className = 'move-part part-pins';
+                    pinSpan.innerText = parts[0] || '';
+                    item.appendChild(pinSpan);
+
+                    const slash1 = document.createElement('span');
+                    slash1.className = 'move-slash';
+                    slash1.innerText = '/';
+                    item.appendChild(slash1);
+
+                    const leftSpan = document.createElement('span');
+                    leftSpan.className = 'move-part part-left';
+                    leftSpan.innerText = parts[1] || '';
+                    item.appendChild(leftSpan);
+
+                    if (parts.length > 2) {
+                        const slash2 = document.createElement('span');
+                        slash2.className = 'move-slash';
+                        slash2.innerText = '/';
+                        item.appendChild(slash2);
+
+                        const rightSpan = document.createElement('span');
+                        rightSpan.className = 'move-part part-right';
+                        rightSpan.innerText = parts[2] || '';
+                        item.appendChild(rightSpan);
+                    }
+                }
+                container.appendChild(item);
             });
         }
         function getPhysicalIdForMn(name) {
@@ -2271,18 +2424,18 @@
             label.className = 'solve-mn-label solve-arrow-svg';
             label.innerText = textStr;
 
-            // ズレ幅（オフセット）を小さくして、ダイヤルのフチに乗るように調整
+            // ズレ幅（オフセット）をパーセンテージ指定にして、画面幅に関わらず位置比率を保持する
             let offsetX = 0;
             let offsetY = 0;
 
-            if (dialName.includes('L')) offsetX = -20;
-            if (dialName.includes('R')) offsetX = 20;
-            if (dialName.includes('U')) offsetY = -50;
-            if (dialName.includes('D')) offsetY = 50;
+            if (dialName.includes('L')) offsetX = -8;
+            if (dialName.includes('R')) offsetX = 8;
+            if (dialName.includes('U')) offsetY = -20;
+            if (dialName.includes('D')) offsetY = 20;
 
-            // 計算したオフセットを適用
-            label.style.left = `calc(${rawCoord[0]}% + ${offsetX}px)`;
-            label.style.top = `calc(${rawCoord[1]}% + ${offsetY}px)`;
+            // 計算したパーセンテージオフセットを適用
+            label.style.left = `${rawCoord[0] + offsetX}%`;
+            label.style.top = `${rawCoord[1] + offsetY}%`;
             label.style.color = color;
 
             board.appendChild(label);
